@@ -1,0 +1,42 @@
+services:
+  # 1. The Database (Optional, but good to keep)
+  rossmann_db:
+    image: postgres:13
+    container_name: rossmann_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: rossmann
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. The Backend (Chef)
+  api:
+    build: .
+    command: uvicorn src.app.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./src:/app/src
+    # Note: API doesn't strictly need DB for prediction, but we link them just in case
+    depends_on:
+      - rossmann_db
+
+  # 3. The Frontend (Waiter)
+  dashboard:
+    build: .
+    command: streamlit run src/app/dashboard.py
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000/predict
+    depends_on:
+      - api
+    volumes:
+      - ./src:/app/src
+
+volumes:
+  postgres_data:
