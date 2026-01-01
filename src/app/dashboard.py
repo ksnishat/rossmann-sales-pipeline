@@ -1,8 +1,10 @@
 import streamlit as st
 import requests
+import os  # NEW: To read environment variables
 
-# 1. Define the API URL (Where we send the data)
-API_URL = "http://127.0.0.1:8000/predict"
+# 1. Define API URL (Dynamic)
+# Docker will send "http://api:8000/predict". Localhost will use the default.
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/predict")
 
 # 2. Page Setup
 st.set_page_config(page_title="Rossmann Sales AI", layout="centered")
