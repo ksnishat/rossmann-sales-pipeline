@@ -1,0 +1,46 @@
+# DVC Parameters for Rossmann
+training:
+  n_estimators: 100
+  max_depth: 20
+  min_samples_split: 5
+  min_samples_leaf: 2
+  max_features: sqrt
+  random_state: 42
+  test_size: 0.2
+
+feature_engineering:
+  lag_features:
+    - 1
+    - 7
+    - 14
+    - 28
+    - 30
+    - 90
+    - 180
+    - 365
+  rolling_windows:
+    - 7
+    - 14
+    - 30
+    - 90
+    - 365
+  moving_avg_windows:
+    - 7
+    - 14
+    - 30
+
+bronze:
+  source_format: csv
+  encoding: utf-8
+
+silver:
+  missing_value_strategy: interpolate
+  outlier_method: iqr
+  outlier_threshold: 1.5
+
+gold:
+  include_rolling_features: true
+  include_ewm_features: true
+  include_date_features: true
+  include_competition_features: true
+  include_promo_features: true

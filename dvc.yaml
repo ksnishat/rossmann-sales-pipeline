@@ -1,0 +1,76 @@
+# DVC Pipeline for Rossmann Sales Pipeline
+# Bronze → Silver → Gold feature engineering pipeline
+
+stages:
+  # === BRONZE LAYER: Raw data loading ===
+  extract_bronze:
+    cmd: python src/scripts/load_data.py
+    deps:
+      - src/scripts/load_data.py
+      - data/raw/train.csv.dvc
+    outs:
+      - data/bronze/sales_raw.dvc
+      - data/bronze/stores_raw.dvc
+      - data/bronze/transactions_raw.dvc
+    desc: Load raw Rossmann sales data from CSV/database (bronze layer)
+
+  # === BRONZE → SILVER: Data cleaning ===
+  clean_silver:
+    cmd: python src/scripts/clean_silver.py
+    deps:
+      - src/scripts/clean_silver.py
+      - data/bronze/sales_raw.dvc
+    outs:
+      - data/silver/sales_cleaned.dvc
+      - data/silver/data_quality_report.json
+    metrics:
+      - metrics/silver_cleaning.json:
+          cache: false
+    desc: Handle missing values, fix data types, remove outliers (silver layer)
+
+  # === SILVER → GOLD: Feature engineering ===
+  feature_engineer_gold:
+    cmd: python src/scripts/feature_engineer_gold.py
+    deps:
+      - src/scripts/feature_engineer_gold.py
+      - data/silver/sales_cleaned.dvc
+    outs:
+      - data/gold/sales_features.dvc
+      - data/gold/feature_definitions.json
+    metrics:
+      - metrics/gold_features.json:
+          cache: false
+    desc: Create lag features, rolling stats, promo features (gold layer)
+
+  # === TRAIN-TEST SPLIT ===
+  split_data:
+    cmd: python src/scripts/split_data.py
+    deps:
+      - src/scripts/split_data.py
+      - data/gold/sales_features.dvc
+    outs:
+      - data/gold/train_features.dvc
+      - data/gold/test_features.dvc
+    desc: Temporal train-test split (TimeSeriesSplit compatible)
+
+  # === MODEL TRAINING ===
+  train_model:
+    cmd: python src/scripts/train_model.py
+    deps:
+      - src/scripts/train_model.py
+      - data/gold/train_features.dvc
+    outs:
+      - models/production_model.pkl
+      - models/model_columns.pkl
+      - models/model_metrics.json
+    metrics:
+      - metrics/final_metrics.json:
+          cache: false
+    plots:
+      - plots/prediction_accuracy.png:
+          cache: false
+    params:
+      - training.n_estimators
+      - training.max_depth
+      - training.min_samples_split
+    desc: Train and evaluate Random Forest model
