@@ -1,0 +1,351 @@
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rossmann
+  labels:
+    app: rossmann
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rossmann-config
+  namespace: rossmann
+data:
+  APP_NAME: "rossmann"
+  APP_ENV: "production"
+  APP_LOG_LEVEL: "INFO"
+  POSTGRES_USER: "rossmann"
+  POSTGRES_DB: "rossmann"
+  DASH_PORT: "8050"
+---
+# Secrets
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: rossmann-secrets
+  namespace: rossmann
+data:
+  POSTGRES_PASSWORD: "cm9zYW5kbWV0cnVzdDEyMw=="
+---
+# API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rossmann-api
+  namespace: rossmann
+  labels:
+    app: rossmann
+    component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rossmann
+      component: api
+  template:
+    metadata:
+      labels:
+        app: rossmann
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/rossmann/api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: rossmann-config
+            - secretRef:
+                name: rossmann-secrets
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://rossmann:changeme@postgres:5432/rossmann"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /openapi.json
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rossmann-api-service
+  namespace: rossmann
+  labels:
+    app: rossmann
+    component: api
+spec:
+  selector:
+    app: rossmann
+    component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: rossmann
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          env:
+            - name: POSTGRES_USER
+              value: "rossmann"
+            - name: POSTGRES_PASSWORD
+              value: "changeme123"
+            - name: POSTGRES_DB
+              value: "rossmann"
+            - name: POSTGRES_PORT
+              value: "5432"
+          ports:
+            - containerPort: 5432
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          restartPolicy: Always
+          # Healthcheck
+          livenessProbe:
+            exec:
+              command: ["pg_isready"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: rossmann
+  labels:
+    app: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP
+---
+# MLflow Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: rossmann
+  labels:
+    app: mlflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      containers:
+        - name: mlflow
+          image: mlflow:latest
+          env:
+            - name: POSTGRES_DB
+              value: "rossmann"
+            - name: POSTGRES_USER
+              value: "rossmann"
+            - name: POSTGRES_PASSWORD
+              value: "changeme123"
+            - name: MLFLOW_DB_CONNECTION_STRING
+              value: "postgresql://rossmann:changeme123@postgres:5432/rossmann"
+            - name: MLFLOW_TRACKING_URI
+              value: "http://localhost:5000"
+            - name: DEFAULT_ARTIFACT_ROOT
+              value: "s3://minio:9000/mlflow"
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          volumeMounts:
+            - name: mlflow-data
+              mountPath: /mlruns
+---
+# MLflow Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-service
+  namespace: rossmann
+  labels:
+    app: mlflow
+spec:
+  selector:
+    app: mlflow
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP
+---
+# Dashboard Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rossmann-dashboard
+  namespace: rossmann
+  labels:
+    app: rossmann
+    component: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rossmann
+    component: dashboard
+  template:
+    metadata:
+      labels:
+        app: rossmann
+        component: dashboard
+    spec:
+      containers:
+        - name: dash
+          image: ghcr.io/rossmann/api:latest
+          command: ["python", "-m", "src.dash_app.app"]
+          env:
+            - name: API_URL
+              value: "http://rossmann-api-service:8000/predict"
+            - name: DASH_PORT
+              value: "8050"
+            - name: DASH_DEBUG
+              value: "false"
+          ports:
+            - containerPort: 8050
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "1Gi"
+---
+# Dashboard Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rossmann-dashboard-service
+  namespace: rossmann
+  labels:
+    app: rossmann
+    component: dashboard
+spec:
+  selector:
+    app: rossmann
+    component: dashboard
+  ports:
+    - port: 8050
+      targetPort: 8050
+  type: ClusterIP
+---
+# Horizontal Pod Autoscaler for API
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rossmann-api-hpa
+  namespace: rossmann
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rossmann-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+# PersistentVolumeClaim for models
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rossmann-models-pvc
+  namespace: rossmann
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+# PersistentVolumeClaim for PostgreSQL data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: rossmann
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
