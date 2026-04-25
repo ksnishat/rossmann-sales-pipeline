@@ -1,0 +1,57 @@
+{{- if .Values.dash.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rossmann.fullname" . }}-dashboard
+  labels:
+    app: {{ include "rossmann.fullname" . }}
+    component: dashboard
+spec:
+  replicas: {{ .Values.dash.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "rossmann.fullname" . }}
+      component: dashboard
+  template:
+    metadata:
+      labels:
+        app: {{ include "rossmann.fullname" . }}
+        component: dashboard
+    spec:
+      containers:
+        - name: dash
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["python", "-m", "src.dash_app.app"]
+          ports:
+            - containerPort: 8050
+          env:
+            - name: API_URL
+              value: "http://{{ include "rossmann.fullname" . }}-api-service:8000/predict"
+            - name: DASH_PORT
+              value: {{ .Values.env.DASH_PORT | quote }}
+            - name: DASH_DEBUG
+              value: "false"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rossmann.fullname" . }}-dashboard-service
+  labels:
+    app: {{ include "rossmann.fullname" . }}
+    component: dashboard
+spec:
+  selector:
+    app: {{ include "rossmann.fullname" . }}
+    component: dashboard
+  ports:
+    - port: 8050
+      targetPort: 8050
+  type: {{ .Values.service.type }}
+{{- end }}

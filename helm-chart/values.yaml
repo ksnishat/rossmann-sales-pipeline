@@ -1,0 +1,49 @@
+replicaCount: 3
+
+image:
+  repository: ghcr.io/rossmann/api
+  pullPolicy: IfNotPresent
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  host: rossmann.example.com
+  tls: true
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2
+    memory: 2Gi
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 70
+  targetMemoryUtilization: 80
+
+env:
+  APP_NAME: rossmann
+  APP_ENV: production
+  APP_LOG_LEVEL: INFO
+  POSTGRES_USER: rossmann
+  POSTGRES_DB: rossmann
+  DASH_PORT: "8050"
+
+persistence:
+  enabled: true
+  size: 20Gi
+  accessMode: ReadWriteOnce
+
+dash:
+  enabled: true
+  port: 8050
+  replicas: 1
