@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.10" ]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: rossmann
+          POSTGRES_PASSWORD: rossmann123
+          POSTGRES_DB: rossmann
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov psycopg2-binary
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check . --output-format=github || true
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --tb=short --maxfail=3 --disable-warnings
