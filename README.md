@@ -31,6 +31,14 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 - **Production Ready:** Kubernetes and Helm charts for scalable deployment.
 - **CI/CD Pipeline:** GitHub Actions for automated testing, building, and deployment.
 
+
+### Recent Improvements (2026)
+🔧 **Makefile** — Standardized commands: `make test`, `make lint`, `make docker-up`, `make k8s-deploy`, `make promote`
+📦 **pyproject.toml** — Modern Python packaging with dependencies, entry points, ruff/mypy config
+🔒 **Pre-commit hooks** — Ruff, mypy, black, trailing whitespace, YAML validation
+✅ **Data Quality Validation** — Schema-based validation (completeness, validity, consistency, uniqueness)
+☁️ **Terraform IaC** — Azure infrastructure as code (AKS, PostgreSQL, Redis, monitoring)
+
 ## Architecture
 
 ```mermaid
