@@ -174,9 +174,11 @@ uvicorn src.app.api:app --host 0.0.0.0 --port 8002
 ```bash
 curl http://localhost:8002/health
 curl http://localhost:8002/metrics | grep rossmann
+# Field names are PascalCase and match the training columns exactly.
 curl -X POST http://localhost:8002/predict \
      -H 'Content-Type: application/json' \
-     -d '{"store":1,"day_of_week":5,"promo":1,"state_holiday":"0","school_holiday":0,"store_type":"a","assortment":"a","competition_distance":1270.0}'
+     -d '{"Store":1,"DayOfWeek":5,"Promo":1,"SchoolHoliday":0,"StoreType":"a","Assortment":"a","CompetitionDistance":1270.0,"Promo2":0}'
+# {"predicted_sales":5034.717003288615}
 ```
 
 ### 6. Or launch the whole Docker stack
