@@ -172,7 +172,10 @@ uvicorn src.app.api:app --host 0.0.0.0 --port 8002
 ### 5. Verify
 
 ```bash
-curl http://localhost:8002/health
+# The root path is the health endpoint; there is no /health route.
+curl http://localhost:8002/
+# {"status":"healthy","service":"rossmann-sales-api","model_loaded":true}
+
 curl http://localhost:8002/metrics | grep rossmann
 # Field names are PascalCase and match the training columns exactly.
 curl -X POST http://localhost:8002/predict \
