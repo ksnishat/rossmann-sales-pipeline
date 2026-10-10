@@ -97,7 +97,7 @@ def predict_sales(data: SalesInput):
         JSON with predicted_sales (float)
     """
     try:
-        input_data = data.dict()
+        input_data = data.model_dump()
 
         if _model_loaded and _model is not None:
             try:

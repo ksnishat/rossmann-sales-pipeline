@@ -29,7 +29,6 @@ services:
   # 2. MLflow (Experiment Tracking)
   # ==========================================
   mlflow:
-    image: ghcr.io/rossmann/mlflow:latest
     container_name: rossmann_mlflow
     build:
       context: .
@@ -87,7 +86,6 @@ services:
   # 4. BACKEND (FastAPI)
   # ==========================================
   api:
-    image: ghcr.io/rossmann/api:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -130,7 +128,9 @@ services:
   # 5. DASHBOARD (Plotly Dash - Modern Enterprise UI)
   # ==========================================
   dash:
-    image: ghcr.io/rossmann/api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: rossmann_dash
     command: python -m src.dash_app.app
     ports:
@@ -158,7 +158,9 @@ services:
   # 6. LEGACY FRONTEND (Streamlit)
   # ==========================================
   streamlit:
-    image: ghcr.io/rossmann/api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: rossmann_streamlit
     command: streamlit run src/app/dashboard.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
     ports:

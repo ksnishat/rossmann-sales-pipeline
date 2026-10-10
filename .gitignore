@@ -35,6 +35,7 @@ logs/
 *.log
 
 # --- Data & Models ---
+rossmann-store-sales/
 data/
 models/
 *.pth
