@@ -38,6 +38,10 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 🔒 **Pre-commit hooks** — Ruff, mypy, black, trailing whitespace, YAML validation
 ✅ **Data Quality Validation** — Schema-based validation (completeness, validity, consistency, uniqueness)
 ☁️ **Terraform IaC** — Azure infrastructure as code (AKS, PostgreSQL, Redis, monitoring)
+📊 **Prometheus instrumentation** — the API now exposes request, latency, prediction and model-loaded metrics
+🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
+🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
+✅ **Test suite green** — 25/25 passing
 
 ## Architecture
 
@@ -117,67 +121,124 @@ Germany's retail sector is undergoing digital transformation, with predictive an
 
 6. **SME Accessibility**: Helm charts and Docker Compose enable Mittelstand retailers to deploy without cloud vendor lock-in.
 
-## Quick Start (Docker)
+## Verified Model Metrics
 
-The easiest way to run the application is using Docker Compose.
+Reproduced locally on an NVIDIA RTX 3050 Ti (4 GB).
+
+| Metric | Value |
+|--------|-------|
+| Dataset | [Rossmann Store Sales](https://www.kaggle.com/c/rossmann-store-sales) (Kaggle) |
+| Training rows | 844,392 |
+| Model | `RandomForestRegressor` (scikit-learn) |
+| **MAE** | **869.51** |
+| **RMSE** | **1295.21** |
+| Target | `log1p(Sales)`, inverted with `expm1` at inference |
+
+The Kaggle competition's winning solutions reach ~0.10 RMSPE using gradient
+boosting plus extensive feature engineering (store-level history, holiday
+proximity, promo decay). This baseline is a clean, reproducible reference
+implementation — the value here is the *pipeline*, not the leaderboard rank.
+
+## Quickstart
+
+### 1. Install dependencies
 
 ```bash
-# Clone the repository
-git clone https://github.com/ksnishat/rossmann-sales-pipeline.git
-cd rossmann-sales-pipeline
-
-# Start all services
-docker compose up -d
+conda create -n rossmann-sales-env python=3.10 -y
+conda activate rossmann-sales-env
+pip install -r requirements.txt
 ```
 
-### Service Access
+### 2. Get the data
+
+Download `train.csv` and `store.csv` from the
+[Kaggle competition](https://www.kaggle.com/c/rossmann-store-sales/data) and
+place them in `rossmann-store-sales/` at the repository root.
+
+### 3. Train
+
+```bash
+python -m src.scripts.train_model
+```
+
+This writes `models/model.pkl` and logs the run to MLflow.
+
+### 4. Start the API
+
+```bash
+uvicorn src.app.api:app --host 0.0.0.0 --port 8002
+```
+
+### 5. Verify
+
+```bash
+curl http://localhost:8002/health
+curl http://localhost:8002/metrics | grep rossmann
+curl -X POST http://localhost:8002/predict \
+     -H 'Content-Type: application/json' \
+     -d '{"store":1,"day_of_week":5,"promo":1,"state_holiday":"0","school_holiday":0,"store_type":"a","assortment":"a","competition_distance":1270.0}'
+```
+
+### 6. Or launch the whole Docker stack
+
+```bash
+docker compose up -d      # postgres, mlflow, api, dash, streamlit, prometheus, grafana
+```
+
+## Running Tests
+
+```bash
+pytest tests/ -v          # 25 passed
+```
+
+## Monitoring & Live Demo
+
+```bash
+./start_all_stacks.sh rossmann   # API :8002 + Prometheus :9092 + Grafana :3003
+python3 provision_dashboards.py  # datasource + dashboard
+```
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| **FastAPI** | http://localhost:8000/docs | N/A |
+| **FastAPI** | http://localhost:8002/docs | N/A |
+| **Prometheus** | http://localhost:9092 | N/A |
+| **Grafana** | http://localhost:3003 | `admin` / `admin` |
 | **Plotly Dash** | http://localhost:8050 | N/A |
 | **Streamlit** | http://localhost:8501 | N/A |
-| **MLflow** | http://localhost:5000 | N/A |
-| **PostgreSQL** | localhost:5432 | rossmann / changeme123 |
+| **MLflow** | http://localhost:5003 | N/A |
+| **PostgreSQL** | localhost:5433 | rossmann / changeme123 |
+
+### Exposed metrics
+
+| Metric | Type | Meaning |
+|--------|------|---------|
+| `rossmann_requests_total` | counter | Requests, labelled by `endpoint` and `status` |
+| `rossmann_prediction_latency_seconds` | histogram | Prediction latency |
+| `rossmann_last_predicted_sales` | gauge | Most recent predicted sales value |
+| `rossmann_model_loaded` | gauge | 1 when the model is loaded, 0 otherwise |
+| `rossmann_predictions_total` | counter | Predictions, labelled by `source` (`model` / `fallback`) |
 
 ## Local Development Setup
 
 ### 1. Environment Setup
 
 ```bash
-# Create conda environment
 conda env create -f environments/rossmann-env.yml
 conda activate rossmann-env
-
-# Or use pip
-pip install -r requirements.txt
 ```
 
 ### 2. Database Setup
 
 ```bash
-# Start PostgreSQL
 docker compose up -d postgres
-
-# Run migrations (if any)
 python -m src.scripts.init_db
 ```
 
-### 3. Train Model
-
-```bash
-# Train and register model in MLflow
-python -m src.scripts.train_model
-
-# Or via MLflow CLI
-mlflow run . -P model_type=random_forest
-```
-
-### 4. Run API and Dashboards
+### 3. Run API and Dashboards
 
 ```bash
 # Terminal 1: FastAPI
-uvicorn src.app.api:app --reload --host 0.0.0.0 --port 8000
+uvicorn src.app.api:app --reload --host 0.0.0.0 --port 8002
 
 # Terminal 2: Plotly Dash
 python -m src.dash_app.app
@@ -194,10 +255,10 @@ rossmann-sales-pipeline/
 ├── notebooks/                  # Jupyter notebooks for EDA
 ├── src/
 │   ├── app/
-│   │   ├── api.py              # FastAPI Backend
-│   │   ├── dashboard.py        # Streamlit Frontend (legacy)
+│   │   ├── api.py              # FastAPI backend + Prometheus instrumentation
+│   │   ├── dashboard.py        # Streamlit frontend (legacy)
 │   │   └── config.py           # Pydantic settings
-│   ├── dash_app/               # Plotly Dash Multi-page App
+│   ├── dash_app/               # Plotly Dash multi-page app
 │   │   ├── app.py              # Dash entry point
 │   │   ├── layouts.py          # Page layouts
 │   │   └── utils.py            # Helper functions
@@ -205,9 +266,6 @@ rossmann-sales-pipeline/
 │       ├── train_model.py      # Training script
 │       └── init_db.py          # Database initialization
 ├── tests/                      # Unit tests
-│   ├── test_api.py
-│   ├── test_data.py
-│   └── conftest.py
 ├── k8s/                        # Kubernetes manifests
 ├── helm-chart/                 # Helm chart for K8s
 ├── environments/               # Conda environments
@@ -218,36 +276,28 @@ rossmann-sales-pipeline/
 
 ## Dashboard Features (Plotly Dash)
 
-The modern **Plotly Dash** dashboard includes 4 professional pages:
+The **Plotly Dash** dashboard includes 4 pages:
 
 1. **Home** — Executive KPI overview with sales trends, store count, average sales
 2. **Stores** — Interactive store comparison with filters, heatmap, and performance ranking
 3. **Predict** — Sales prediction form with feature inputs and forecast visualization
 4. **Metrics** — Model performance tracking with MLflow integration
 
-Built with **Dash Bootstrap Components** for responsive, enterprise-grade UI matching German corporate design standards.
+Built with **Dash Bootstrap Components** for a responsive UI.
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
 | **Database connection failed** | Check PostgreSQL container is running: `docker compose ps postgres` |
-| **Model not loaded in API** | Verify model.pkl exists in models/ and MLflow tracking URI is correct |
+| **Model not loaded in API** | Verify `models/model.pkl` exists; the API falls back to a heuristic and reports `source="fallback"` in metrics |
+| **`AttributeError: 'X' object has no attribute 'dict'`** | Fixed in this commit — Pydantic v2 uses `model_dump()` |
 | **Dash dashboard not loading** | Check port 8050 is not in use; verify `src/dash_app/app.py` imports |
-| **MLflow UI not accessible** | Ensure MLflow container has correct artifact store configuration |
-| **Prediction errors** | Check input feature schema matches training features exactly |
-| **High API latency** | Enable model caching in FastAPI lifespan; check PostgreSQL query performance |
-| **Pods crash on K8s** | Increase resource limits in helm-chart/values.yaml; check PVC binding |
-| **GitHub Actions failing** | Verify secrets (GITHUB_TOKEN, KUBE_CONFIG_DATA) are configured |
-
-## Monitoring & Observability
-
-- **Prometheus** scrapes metrics from FastAPI `/metrics` endpoint
-- **Grafana** dashboards track:
-  - API request latency and throughput
-  - Prediction accuracy over time (drift detection)
-  - Database connection pool health
-  - Container resource utilization
+| **MLflow UI not accessible** | Ensure the MLflow container has the correct artifact store configuration |
+| **Prediction errors** | Check the input feature schema matches the training features exactly |
+| **Grafana shows "No data"** | Re-run `provision_dashboards.py` so the datasource points at the Prometheus container IP |
+| **Pods crash on K8s** | Increase resource limits in `helm-chart/values.yaml`; check PVC binding |
+| **GitHub Actions failing** | Verify secrets (`GITHUB_TOKEN`, `KUBE_CONFIG_DATA`) are configured |
 
 ## Author
 

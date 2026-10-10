@@ -11,7 +11,39 @@ from pydantic import BaseModel
 import joblib
 import pandas as pd
 import os
+import time
 from typing import Optional
+
+# Prometheus instrumentation
+try:
+    from prometheus_client import Counter, Histogram, Gauge
+
+    REQUEST_COUNT = Counter(
+        "rossmann_requests_total",
+        "Total Rossmann API requests",
+        ["endpoint", "status"],
+    )
+    PREDICTION_LATENCY = Histogram(
+        "rossmann_prediction_latency_seconds",
+        "Sales prediction latency in seconds",
+        buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+    )
+    PREDICTED_SALES = Gauge(
+        "rossmann_last_predicted_sales",
+        "Most recent predicted daily sales value",
+    )
+    MODEL_LOADED_GAUGE = Gauge(
+        "rossmann_model_loaded",
+        "1 if the trained model is loaded, 0 if the fallback heuristic is used",
+    )
+    MODEL_USED = Counter(
+        "rossmann_predictions_total",
+        "Predictions served, labelled by whether the trained model was used",
+        ["source"],
+    )
+except ImportError:  # pragma: no cover
+    REQUEST_COUNT = PREDICTION_LATENCY = PREDICTED_SALES = None
+    MODEL_LOADED_GAUGE = MODEL_USED = None
 
 # Global model variables
 _model = None
@@ -99,18 +131,31 @@ def predict_sales(data: SalesInput):
     try:
         input_data = data.model_dump()
 
+        t0 = time.perf_counter()
         if _model_loaded and _model is not None:
             try:
                 prediction = _predict_sales(_model, _model_columns, input_data)
-                return {"predicted_sales": prediction}
+                source = "model"
             except Exception as e:
                 print(f"Model prediction failed: {e}")
+                prediction = _fallback_prediction(input_data)
+                source = "fallback"
+        else:
+            prediction = _fallback_prediction(input_data)
+            source = "fallback"
 
-        # Fallback
-        prediction = _fallback_prediction(input_data)
+        # Record metrics
+        if REQUEST_COUNT is not None:
+            PREDICTION_LATENCY.observe(time.perf_counter() - t0)
+            PREDICTED_SALES.set(prediction)
+            MODEL_USED.labels(source=source).inc()
+            REQUEST_COUNT.labels(endpoint="predict", status="200").inc()
+
         return {"predicted_sales": prediction}
 
     except Exception as e:
+        if REQUEST_COUNT is not None:
+            REQUEST_COUNT.labels(endpoint="predict", status="500").inc()
         return {"error": str(e)}
 
 
@@ -120,4 +165,6 @@ def metrics():
     from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     from fastapi.responses import Response
 
+    if MODEL_LOADED_GAUGE is not None:
+        MODEL_LOADED_GAUGE.set(1 if _model_loaded else 0)
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
