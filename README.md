@@ -269,7 +269,6 @@ rossmann-sales-pipeline/
 ├── k8s/                        # Kubernetes manifests
 ├── helm-chart/                 # Helm chart for K8s
 ├── environments/               # Conda environments
-├── job_preparation/            # Interview preparation
 ├── .github/workflows/          # CI/CD pipelines
 └── docker-compose.yml          # Container orchestration
 ```
