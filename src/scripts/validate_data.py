@@ -13,11 +13,10 @@ Usage:
     results = validate_dataset("data/silver/train.csv")
     print(results)
 """
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+
+import pandas as pd
 
 
 class CheckType(Enum):
@@ -45,7 +44,7 @@ class ValidationResult:
     dataset_name: str
     total_rows: int
     total_columns: int
-    checks: List[CheckResult] = field(default_factory=list)
+    checks: list[CheckResult] = field(default_factory=list)
     passed: bool = True
 
     @property

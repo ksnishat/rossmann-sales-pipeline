@@ -1,12 +1,13 @@
+import os
+
+import joblib
 import mlflow
 import mlflow.sklearn
-import joblib
-import os
-import pandas as pd
+
 
 def promote_best_model():
     mlflow.set_experiment("rossmann_sales")
-    
+
     # 1. Find Best Run
     client = mlflow.tracking.MlflowClient()
     experiment = client.get_experiment_by_name("rossmann_sales")
@@ -15,20 +16,20 @@ def promote_best_model():
         order_by=["metrics.mae ASC"],
         max_results=1
     )
-    
+
     best_run = runs[0]
     run_id = best_run.info.run_id
     print(f"Promoting Run ID: {run_id}")
-    
+
     # 2. Load Model
     model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
-    
+
     # 3. Create 'models' folder
     os.makedirs("models", exist_ok=True)
-    
+
     # 4. Save Model
     joblib.dump(model, "models/production_model.pkl")
-    
+
     # 5. Save Feature Names (THE FIX)
     # Instead of guessing from SQL, we ask the model what it learned!
     # Random Forest stores the feature names in .feature_names_in_

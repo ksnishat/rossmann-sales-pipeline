@@ -1,14 +1,14 @@
 """Tests for the data quality validation module."""
-import pytest
+
 import pandas as pd
-import tempfile
-from pathlib import Path
+import pytest
+
 from src.scripts.validate_data import (
-    validate_dataset,
-    ValidationResult,
+    ROSSMANN_SCHEMA,
     CheckResult,
     CheckType,
-    ROSSMANN_SCHEMA,
+    ValidationResult,
+    validate_dataset,
 )
 
 
@@ -197,6 +197,6 @@ class TestSchemaDefinition:
 
     def test_categorical_values_valid(self):
         """Categorical values should be non-empty lists."""
-        for col, values in ROSSMANN_SCHEMA["categorical_values"].items():
+        for _col, values in ROSSMANN_SCHEMA["categorical_values"].items():
             assert isinstance(values, list)
             assert len(values) > 0

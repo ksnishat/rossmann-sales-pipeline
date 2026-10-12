@@ -11,18 +11,18 @@ Run: python -m src.dash_app.app
 """
 
 import os
-import dash
-from dash import dcc, html, Input, Output, State, callback
-from dash.exceptions import PreventUpdate
+
 import dash_bootstrap_components as dbc
+import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
 import requests
+from dash import Input, Output, State, callback, dcc, html
+from dash.exceptions import PreventUpdate
 
 # Import layout components
-from src.dash_app.layouts import app, render_page, NAVBAR, PAGES
+from src.dash_app.layouts import app, render_page
 
 # API base URL
 API_URL = os.getenv("API_URL", "http://localhost:8000")

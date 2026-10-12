@@ -9,8 +9,8 @@ Provides the page structure for all Dash routes:
 """
 
 import dash
-from dash import html
 import dash_bootstrap_components as dbc
+from dash import html
 
 # Bootstrap theme
 THEME = dbc.themes.SOLAR

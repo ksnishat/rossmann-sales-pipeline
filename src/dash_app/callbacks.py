@@ -8,24 +8,18 @@ Contains all callback functions for the Dash dashboard interactivity:
 - Metrics page: MLflow metrics refresh
 """
 
-import os
-import json
-from datetime import datetime
-from dash import Input, Output, State, callback, ctx
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-import dash
+import mlflow
+import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
 import requests
-import mlflow
+from dash import Input, Output, State, callback
+from dash.exceptions import PreventUpdate
 
 # Import app and data cache from main app module
-from src.dash_app.app import app, DATA_CACHE, API_URL, MLFLOW_URI
-from src.dash_app.layouts import PAGE_LAYOUTS
-
+from src.dash_app.app import API_URL, DATA_CACHE, MLFLOW_URI
 
 # ============================================================
 # HOME PAGE CALLBACKS

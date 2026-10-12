@@ -4,21 +4,23 @@ Extracts raw sales data from CSV and databases.
 """
 import argparse
 from pathlib import Path
+
 import pandas as pd
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", default="data/raw", help="Source CSV files")
     parser.add_argument("--output", default="data/bronze", help="Output directory")
     args = parser.parse_args()
-    
+
     src = Path(args.source)
     dst = Path(args.output)
     dst.mkdir(parents=True, exist_ok=True)
-    
+
     csv_files = list(src.glob("*.csv"))
     logger = __import__("logging").getLogger()
-    
+
     for csv_file in csv_files:
         df = pd.read_csv(csv_file)
         logger.info(f"{csv_file.name}: {len(df)} rows, columns: {list(df.columns)[:5]}")

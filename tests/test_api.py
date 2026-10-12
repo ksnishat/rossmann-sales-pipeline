@@ -5,7 +5,8 @@ Tests for the FastAPI prediction API and Streamlit dashboard components.
 
 import pytest
 from fastapi.testclient import TestClient
-from src.app.api import app, SalesInput
+
+from src.app.api import SalesInput, app
 
 
 @pytest.fixture(scope="module")
@@ -76,9 +77,7 @@ class TestPredict:
         assert response.status_code in (200, 500)
 
     def test_predict_transforms_open_field(self, client):
-        """API should force Open=1 internally."""
-        from src.app.api import SalesInput
-
+        """The API should force Open=1 internally rather than requiring it."""
         input_data = {
             "Store": 1115,
             "DayOfWeek": 5,
@@ -89,9 +88,12 @@ class TestPredict:
             "CompetitionDistance": 1000.0,
             "Promo2": 0,
         }
-        payload = SalesInput(**input_data)
-        # Verify Open field is not in the output (it's set to 1 internally)
-        df = self._df = None  # Placeholder for actual DataFrame
+        # Open is not part of the request schema; the API sets it internally.
+        assert "Open" not in SalesInput.model_fields
+
+        response = client.post("/predict", json=input_data)
+        assert response.status_code == 200
+        assert "predicted_sales" in response.json()
 
     def test_predict_returns_positive_sales(self, client, valid_store_input):
         """Predicted sales should be non-negative."""
@@ -119,8 +121,9 @@ class TestModelLoading:
 
     def test_model_columns_match_api_expectations(self):
         """API columns must match training columns."""
-        import joblib
         import os
+
+        import joblib
 
         model_path = "models/production_model.pkl"
         columns_path = "models/model_columns.pkl"
@@ -181,13 +184,10 @@ class TestErrorHandling:
         assert response.status_code == 422
 
     def test_predict_with_negative_sales(self, client, valid_store_input):
-        """Negative sales in prediction should be handled."""
-        # This is a valid test case - model prediction could theoretically be negative
+        """Predicted sales should never be negative."""
         response = client.post("/predict", json=valid_store_input)
-        if response.status_code == 200:
-            data = response.json()
-            # API or model should ensure non-negative prediction
-            # Current implementation doesn't enforce this, but it's a good practice
+        assert response.status_code == 200
+        assert response.json()["predicted_sales"] >= 0
 
 
 class TestPandas:

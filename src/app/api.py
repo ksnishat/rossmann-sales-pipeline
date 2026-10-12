@@ -6,17 +6,17 @@ Endpoints:
 - POST /predict : Predict daily sales for a store
 """
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-import joblib
-import pandas as pd
 import os
 import time
-from typing import Optional
+
+import joblib
+import pandas as pd
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 # Prometheus instrumentation
 try:
-    from prometheus_client import Counter, Histogram, Gauge
+    from prometheus_client import Counter, Gauge, Histogram
 
     REQUEST_COUNT = Counter(
         "rossmann_requests_total",
@@ -162,8 +162,8 @@ def predict_sales(data: SalesInput):
 @app.get("/metrics")
 def metrics():
     """Prometheus metrics endpoint."""
-    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     from fastapi.responses import Response
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
     if MODEL_LOADED_GAUGE is not None:
         MODEL_LOADED_GAUGE.set(1 if _model_loaded else 0)

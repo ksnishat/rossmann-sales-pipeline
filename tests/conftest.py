@@ -1,6 +1,5 @@
 """Shared pytest fixtures for all Rossmann tests."""
 
-import os
 import pytest
 
 
