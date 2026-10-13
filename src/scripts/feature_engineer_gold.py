@@ -19,9 +19,11 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
     for lag in LAGS:
         df[f"Sales_lag_{lag}"] = df.groupby("Store")["Sales"].shift(lag)
 
-    # Rolling statistics. `window` is bound as a default argument because a
-    # lambda closes over the variable, not its value: without this every
-    # feature would use the final value of the loop variable.
+    # Rolling statistics. `window` is bound as a default argument for safety:
+    # a lambda closes over the variable, not its value. pandas evaluates this
+    # lambda eagerly inside transform(), so the late-binding bug does not
+    # currently manifest, but binding the value makes the intent explicit and
+    # keeps the code correct if the call is ever made lazy.
     for window in ROLLING_WINDOWS:
         df[f"Sales_rolling_mean_{window}"] = df.groupby("Store")["Sales"].transform(
             lambda x, w=window: x.rolling(w, min_periods=1).mean()
