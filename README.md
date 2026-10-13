@@ -193,14 +193,28 @@ docker compose up -d      # postgres, mlflow, api, dash, streamlit, prometheus, 
 ## Running Tests
 
 ```bash
-pytest tests/ -v          # 25 passed
+pytest tests/ -v          # 34 passed, 8 skipped
 ```
+
+The 8 skipped tests are integration tests that need the live docker stack. They
+are excluded from CI (which has no model checkpoint or dataset) and run against
+real services instead of an in-process `TestClient`:
+
+```bash
+./start_all_stacks.sh rossmann
+LIVE_STACK=1 pytest tests/test_integration_live.py -v   # 8 passed
+```
+
+They assert the API returns a positive forecast, that a missing required field
+is rejected with 422, that Prometheus is actually scraping the API (not merely
+healthy), and that MLflow, Grafana and MinIO are reachable.
 
 ## Monitoring & Live Demo
 
 ```bash
-./start_all_stacks.sh rossmann   # API :8002 + Prometheus :9092 + Grafana :3003
+./start_all_stacks.sh rossmann   # API + MLflow + MinIO + Prometheus + Grafana
 python3 provision_dashboards.py  # datasource + dashboard
+./verify_live_stack.sh rossmann  # 7 checks, exit 0 when all pass
 ```
 
 | Service | URL | Credentials |
