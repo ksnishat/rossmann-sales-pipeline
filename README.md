@@ -201,7 +201,7 @@ are excluded from CI (which has no model checkpoint or dataset) and run against
 real services instead of an in-process `TestClient`:
 
 ```bash
-./start_all_stacks.sh rossmann
+./run_stack.sh
 LIVE_STACK=1 pytest tests/test_integration_live.py -v   # 8 passed
 ```
 
@@ -212,9 +212,9 @@ healthy), and that MLflow, Grafana and MinIO are reachable.
 ## Monitoring & Live Demo
 
 ```bash
-./start_all_stacks.sh rossmann   # API + MLflow + MinIO + Prometheus + Grafana
-python3 provision_dashboards.py  # datasource + dashboard
-./verify_live_stack.sh rossmann  # 7 checks, exit 0 when all pass
+./run_stack.sh                   # API + MLflow + MinIO + Prometheus + Grafana
+python3 provision_dashboards.py rossmann   # datasource + dashboard
+./verify_stack.sh                 # 7 checks, exit 0 when all pass
 ```
 
 | Service | URL | Credentials |
@@ -284,7 +284,9 @@ rossmann-sales-pipeline/
 │   └── scripts/
 │       ├── train_model.py      # Training script
 │       └── init_db.py          # Database initialization
-├── tests/                      # Unit tests
+├── tests/                      # 34 unit + 8 integration tests
+├── run_stack.sh                # Start API + MLflow + MinIO + Prometheus + Grafana
+├── verify_stack.sh             # 7 live-stack health checks
 ├── k8s/                        # Kubernetes manifests
 ├── helm-chart/                 # Helm chart for K8s
 ├── environments/               # Conda environments
