@@ -236,6 +236,46 @@ python3 provision_dashboards.py rossmann   # datasource + dashboard
 | `rossmann_last_predicted_sales` | gauge | Most recent predicted sales value |
 | `rossmann_model_loaded` | gauge | 1 when the model is loaded, 0 otherwise |
 | `rossmann_predictions_total` | counter | Predictions, labelled by `source` (`model` / `fallback`) |
+| `rossmann_feature_drift_psi` | gauge | PSI per input feature vs the training baseline |
+| `rossmann_max_drift_psi` | gauge | Largest per-feature PSI in the current window |
+
+### Drift detection
+
+`GET /drift` reports the Population Stability Index between live request values
+and the distribution the model was fitted on. The baseline is captured during
+training into `models/drift_baseline.json`.
+
+Only numeric features are tracked: PSI is defined on a continuous or ordinal
+distribution, and the one-hot indicator columns are already represented by the
+numeric features they derive from. Constant features are dropped because they
+collapse the quantile bins and make PSI undefined.
+
+### Scheduled retraining
+
+`dags/retraining_pipeline.py` runs weekly: retrain → promote the best MLflow run
+→ reload the serving model → report drift. Promotion is a separate step from
+training so a bad run cannot reach production just by finishing.
+
+```bash
+docker compose up -d postgres airflow-postgres airflow-webserver airflow-scheduler
+docker exec rossmann_airflow_scheduler airflow dags unpause rossmann_continuous_learning
+docker exec rossmann_airflow_scheduler airflow dags trigger rossmann_continuous_learning
+```
+
+Airflow UI: http://localhost:8083 (`admin` / `admin`).
+
+The reload step calls `POST /admin/reload-model`, disabled unless
+`ENABLE_MODEL_RELOAD=true`.
+
+### Building the feature store
+
+`train_model.py` reads `SELECT * FROM train_cleaned`, which nothing created
+before. Build it after loading the raw tables:
+
+```bash
+python src/scripts/load_data.py           # train + store tables
+python src/scripts/build_feature_store.py # train_cleaned
+```
 
 ## Local Development Setup
 
