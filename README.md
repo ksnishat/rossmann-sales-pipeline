@@ -100,7 +100,7 @@ graph TD
 | **Multi-page Dash Dashboard** | Professional Plotly Dash with 4 pages: Home, Stores, Predict, Metrics | Enables data-driven store management decisions | Matches German retail dashboard requirements (KPI-Cockpit) |
 | **MLflow Experiment Tracking** | Full experiment lineage with parameters, metrics, artifacts | Ensures model reproducibility and auditability | Complies with German regulatory audit requirements (GoBD) |
 | **PostgreSQL Feature Store** | Centralized feature storage with versioning | Reduces feature engineering duplication | Aligns with German data governance standards |
-| **Prometheus Monitoring** | Custom metrics for prediction latency, accuracy, drift | Proactive model performance monitoring | Supports DIN SPEC 92001 AI quality standards |
+| **Prometheus Monitoring** | Custom metrics for prediction latency, request counts and last predicted value | Proactive service monitoring; no accuracy or drift metric is emitted because ground-truth sales are not available at serving time | Supports DIN SPEC 92001 AI quality standards |
 | **CI/CD Pipeline** | Automated testing, building, deployment | Reduces deployment risk and time-to-market | DevOps practices valued by German enterprises |
 | **Multi-language Support** | Dashboard available in German/English | Facilitates adoption across German retail chains | Meets German language requirements in B2B software |
 | **Scalable Architecture** | Kubernetes HPA with CPU/memory scaling | Handles Black Friday / peak season loads | Critical for German retail peak periods (Weihnachtsgeschäft) |

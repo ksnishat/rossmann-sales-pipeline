@@ -44,6 +44,55 @@ def train(n_estimators, max_depth):
         mlflow.log_metric("mae", mae)
         mlflow.sklearn.log_model(model, "model")
 
+        # 5. CAPTURE THE DRIFT BASELINE
+        # Serving compares incoming requests against the distribution the model
+        # was fitted on, so persist the numeric feature distributions here.
+        # Without this the API has no baseline and cannot report PSI.
+        try:
+            _save_drift_baseline(X_train, "models/drift_baseline.json")
+            print("Drift baseline saved to models/drift_baseline.json")
+        except Exception as e:  # noqa: BLE001 - must not fail an otherwise good run
+            print(f"Drift baseline capture failed ({e}); drift metrics will be unavailable")
+
+
+def _save_drift_baseline(X_train: pd.DataFrame, path: str) -> None:
+    """Persist per-feature distributions of the training data for PSI drift.
+
+    Only numeric columns are stored: PSI is defined on a continuous or ordinal
+    distribution, and the one-hot indicator columns are already represented by
+    the numeric features they were derived from.
+    """
+    import json
+    import os
+
+    numeric = X_train.select_dtypes(include="number")
+    if numeric.empty:
+        raise ValueError("no numeric columns to build a drift baseline from")
+
+    # Cap the sample count so the JSON stays small; PSI needs the shape of the
+    # distribution, not every row.
+    max_samples = 20000
+    if len(numeric) > max_samples:
+        numeric = numeric.sample(n=max_samples, random_state=42)
+
+    features = {}
+    dropped = []
+    for name in numeric.columns:
+        column = numeric[name].astype(float)
+        if float(column.std()) < 1e-9:
+            # A constant feature collapses the quantile bins and makes PSI
+            # undefined, so it is dropped rather than reported as drift.
+            dropped.append(str(name))
+            continue
+        features[str(name)] = [round(float(v), 6) for v in column]
+
+    if dropped:
+        print(f"Dropped {len(dropped)} constant feature(s) from the drift baseline")
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w") as fh:
+        json.dump({"features": features}, fh)
+
 if __name__ == "__main__":
     # This block handles the command line arguments
     parser = argparse.ArgumentParser()

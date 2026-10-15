@@ -41,14 +41,25 @@ try:
         "Predictions served, labelled by whether the trained model was used",
         ["source"],
     )
+    DRIFT_PSI_GAUGE = Gauge(
+        "rossmann_feature_drift_psi",
+        "Population Stability Index per input feature vs the training baseline",
+        ["feature"],
+    )
+    DRIFT_MAX_PSI_GAUGE = Gauge(
+        "rossmann_max_drift_psi",
+        "Largest per-feature PSI in the current window",
+    )
 except ImportError:  # pragma: no cover
     REQUEST_COUNT = PREDICTION_LATENCY = PREDICTED_SALES = None
     MODEL_LOADED_GAUGE = MODEL_USED = None
+    DRIFT_PSI_GAUGE = DRIFT_MAX_PSI_GAUGE = None
 
 # Global model variables
 _model = None
 _model_columns = None
 _model_loaded = False
+_drift_monitor = None
 
 
 def load_model() -> bool:
@@ -72,11 +83,38 @@ def load_model() -> bool:
     return False
 
 
+def load_drift_monitor() -> bool:
+    """Load the training-time feature baseline used for PSI drift detection.
+
+    Best-effort: without a baseline the API still serves predictions, it just
+    cannot report drift.
+    """
+    global _drift_monitor
+
+    try:
+        from .drift import DriftMonitor
+
+        path = os.getenv("DRIFT_BASELINE_PATH", "models/drift_baseline.json")
+        monitor = DriftMonitor.from_file(path)
+        if not monitor.enabled:
+            print(f"No drift baseline at {path}; drift metrics disabled")
+            _drift_monitor = None
+            return False
+        _drift_monitor = monitor
+        print(f"Drift baseline loaded ({len(monitor.baseline)} features)")
+        return True
+    except Exception as e:  # noqa: BLE001 - drift reporting is optional
+        print(f"Drift baseline unavailable ({e})")
+        _drift_monitor = None
+        return False
+
+
 app = FastAPI(title="Rossmann Sales Prediction API")
 
 
 # Load model at startup
 load_model()
+load_drift_monitor()
 
 
 class SalesInput(BaseModel):
@@ -151,12 +189,61 @@ def predict_sales(data: SalesInput):
             MODEL_USED.labels(source=source).inc()
             REQUEST_COUNT.labels(endpoint="predict", status="200").inc()
 
-        return {"predicted_sales": prediction}
+        drift = observe_drift(input_data)
+        if DRIFT_MAX_PSI_GAUGE is not None and drift.get("features"):
+            for feature, stats in drift["features"].items():
+                DRIFT_PSI_GAUGE.labels(feature=feature).set(stats["psi"])
+            DRIFT_MAX_PSI_GAUGE.set(max(s["psi"] for s in drift["features"].values()))
+
+        return {"predicted_sales": prediction, "drift": drift}
 
     except Exception as e:
         if REQUEST_COUNT is not None:
             REQUEST_COUNT.labels(endpoint="predict", status="500").inc()
         return {"error": str(e)}
+
+
+def observe_drift(input_data: dict) -> dict:
+    """Feed the request features into the drift monitor.
+
+    Never raises: drift reporting must not break a prediction.
+    """
+    if _drift_monitor is None or not _drift_monitor.enabled:
+        return {"enabled": False}
+
+    try:
+        _drift_monitor.observe({k: v for k, v in input_data.items() if isinstance(v, (int, float))})
+        return {"enabled": True, "recorded": True, "features": _drift_monitor.compute()}
+    except Exception as exc:  # noqa: BLE001 - drift must never break /predict
+        return {"enabled": True, "recorded": False, "error": str(exc)}
+
+
+@app.get("/drift")
+def drift_report():
+    """Per-feature PSI against the training baseline."""
+    if _drift_monitor is None or not _drift_monitor.enabled:
+        return {
+            "enabled": False,
+            "detail": "No drift baseline loaded. Set DRIFT_BASELINE_PATH to enable.",
+        }
+
+    features = _drift_monitor.compute()
+    if not features:
+        return {
+            "enabled": True,
+            "status": "insufficient_data",
+            "detail": "Fewer than the minimum samples observed so far.",
+            "features": {},
+        }
+
+    worst = max(features.items(), key=lambda kv: kv[1]["psi"])
+    return {
+        "enabled": True,
+        "status": worst[1]["status"],
+        "max_psi": worst[1]["psi"],
+        "worst_feature": worst[0],
+        "features": features,
+    }
 
 
 @app.get("/metrics")
