@@ -1,0 +1,39 @@
+# FILE: infrastructure/docker/Dockerfile.airflow
+#
+# Airflow image for the Rossmann retraining DAG.
+#
+# The DAG imports the project's training module, so every dependency that module
+# needs must be present here. A missing dependency makes the DAG fail to parse
+# and it silently disappears from the Airflow UI rather than reporting an error,
+# which is why the DAG imports them lazily inside the task callables.
+FROM apache/airflow:2.7.1
+
+USER root
+# The apache/airflow:2.7.1 base image ships an apt source for
+# apt.postgresql.org that no longer publishes a Release file for bullseye, so a
+# plain `apt-get update` fails with exit code 100. Drop that source first.
+RUN rm -f /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends gcc && \
+    rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# psycopg2-binary is needed to read the feature store from Postgres. The binary
+# wheel avoids a source build, which would need libpq-dev and pg_config.
+RUN pip install --no-cache-dir \
+    psycopg2-binary \
+    sqlalchemy \
+    pandas \
+    scikit-learn \
+    joblib \
+    mlflow \
+    boto3 \
+    requests
+
+# Training exports the promoted model here. Docker initialises a fresh named
+# volume from the image's directory contents and ownership, so creating it as
+# the airflow user means the volume is writable without a manual chown.
+USER root
+RUN mkdir -p /opt/airflow/models && chown airflow:root /opt/airflow/models
+USER airflow

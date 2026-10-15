@@ -1,5 +1,7 @@
 import argparse  # NEW: Allows us to pass settings from terminal
+import os
 
+import joblib
 import mlflow
 import mlflow.sklearn
 import pandas as pd
@@ -15,7 +17,12 @@ def train(n_estimators, max_depth):
     print(f"Starting Run: Trees={n_estimators}, Depth={max_depth}")
 
     # 2. LOAD DATA
-    db_url = "postgresql://user:password@localhost:5432/rossmann"
+    # Configurable so the same code runs on the host (localhost) and inside
+    # the Airflow container (the postgres service name).
+    db_url = os.getenv(
+        "DATABASE_URL",
+        "postgresql://rossmann:changeme123@localhost:5432/rossmann",
+    )
     engine = create_engine(db_url)
     df = pd.read_sql("SELECT * FROM train_cleaned", engine)
 
@@ -42,7 +49,24 @@ def train(n_estimators, max_depth):
 
         # Log metric
         mlflow.log_metric("mae", mae)
-        mlflow.sklearn.log_model(model, "model")
+
+        # Artifact logging is best-effort. The tracking server may use an
+        # artifact root this process cannot write to (for example a host path
+        # when training runs inside a container), and losing the run's artifacts
+        # must not fail an otherwise successful training job. Params and metrics
+        # still reach the backend store over HTTP.
+        try:
+            mlflow.sklearn.log_model(model, "model")
+        except Exception as e:  # noqa: BLE001 - artifacts are optional
+            print(f"MLflow artifact logging skipped ({e})")
+
+        # Always write a local candidate. Promotion prefers the MLflow artifact
+        # but falls back to this file, so a run whose artifacts could not be
+        # uploaded is still promotable.
+        model_dir = os.getenv("ROSSMANN_MODEL_DIR", "models")
+        os.makedirs(model_dir, exist_ok=True)
+        joblib.dump(model, os.path.join(model_dir, "candidate_model.pkl"))
+        print(f"Candidate model written to {model_dir}/candidate_model.pkl")
 
         # 5. CAPTURE THE DRIFT BASELINE
         # Serving compares incoming requests against the distribution the model

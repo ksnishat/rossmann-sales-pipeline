@@ -12,7 +12,9 @@ services:
       - POSTGRES_PASSWORD=changeme123
       - POSTGRES_DB=rossmann
     ports:
-      - "5432:5432"
+      # 5433, not 5432: the documented port map assigns 5432 to AeroPredict's
+      # Postgres, and both stacks run side by side on this machine.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -238,6 +240,108 @@ services:
     networks:
       - rossmann-network
 
+  # ==========================================
+  # 9. ORCHESTRATION (Airflow)
+  # ==========================================
+  # Postgres is Airflow's metadata database. It is separate from the
+  # application database: Airflow needs its own schema and migrations.
+  airflow-postgres:
+    image: postgres:15
+    container_name: rossmann_airflow_postgres
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - rossmann-network
+
+  airflow-webserver:
+    image: rossmann-airflow:latest
+    container_name: rossmann_airflow_webserver
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.airflow
+    restart: unless-stopped
+    environment:
+      # LocalExecutor cannot use SQLite, so Postgres is required.
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      # MLflow runs on the host (port 5003), not as a compose service, so the
+      # container reaches it through the Docker gateway rather than by name.
+      - MLFLOW_TRACKING_URI=http://host.docker.internal:5003
+      # Training reads the feature store from the application Postgres, which is
+      # reachable by service name inside this network.
+      - DATABASE_URL=postgresql://rossmann:changeme123@postgres:5432/rossmann
+      - ROSSMANN_SRC=/opt/airflow/src
+      - ROSSMANN_MODEL_DIR=/opt/airflow/models
+    volumes:
+      - ./dags:/opt/airflow/dags
+      # Mount src OUTSIDE the dags directory. Airflow scans everything under
+      # /opt/airflow/dags for DAG files, so mounting src there makes it try to
+      # parse every project module as a DAG and report import errors.
+      - ./src:/opt/airflow/src
+      # Named volume, not a bind mount: a host ./logs directory owned by root is
+      # not writable by the airflow user and Airflow fails to start.
+      - airflow_logs:/opt/airflow/logs
+      # Promotion writes the served model here. ./src is a read-only bind mount,
+      # so the exports need their own writable volume.
+      - airflow_models:/opt/airflow/models
+    ports:
+      - "8083:8080"
+    command: webserver
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - rossmann-network
+
+  airflow-scheduler:
+    image: rossmann-airflow:latest
+    container_name: rossmann_airflow_scheduler
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.airflow
+    restart: unless-stopped
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - MLFLOW_TRACKING_URI=http://host.docker.internal:5003
+      - DATABASE_URL=postgresql://rossmann:changeme123@postgres:5432/rossmann
+      - ROSSMANN_SRC=/opt/airflow/src
+      - ROSSMANN_MODEL_DIR=/opt/airflow/models
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - airflow_logs:/opt/airflow/logs
+      - airflow_models:/opt/airflow/models
+    command: scheduler
+    depends_on:
+      - airflow-webserver
+    networks:
+      - rossmann-network
+
 networks:
   rossmann-network:
     driver: bridge
@@ -247,3 +351,6 @@ volumes:
   minio_data:
   prometheus_data:
   grafana_data:
+  airflow_postgres_data:
+  airflow_logs:
+  airflow_models:

@@ -68,7 +68,9 @@ extend-exclude = ["notebooks", ".ipynb_checkpoints"]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 # B008: FastAPI requires File(...)/Depends(...) in argument defaults.
 # C408: dict() calls in Dash layout definitions are intentional.
-ignore = ["E501", "B008", "C408"]
+# UP045: the Airflow image runs Python 3.8, where PEP 604 unions
+# (str | None) raise TypeError at runtime, so Optional[...] is required.
+ignore = ["E501", "B008", "C408", "UP045"]
 
 [tool.ruff.format]
 quote-style = "double"

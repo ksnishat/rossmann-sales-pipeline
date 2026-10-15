@@ -11,7 +11,7 @@ import time
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # Prometheus instrumentation
@@ -255,3 +255,28 @@ def metrics():
     if MODEL_LOADED_GAUGE is not None:
         MODEL_LOADED_GAUGE.set(1 if _model_loaded else 0)
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.post("/admin/reload-model")
+def reload_model():
+    """Re-read the promoted model from disk without restarting the API.
+
+    The retraining DAG promotes the best MLflow run, then calls this so the
+    fresh model is served immediately. Disabled unless ENABLE_MODEL_RELOAD=true:
+    swapping model weights is a privileged operation and should not be reachable
+    by default.
+    """
+    if os.getenv("ENABLE_MODEL_RELOAD", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Model reload is disabled. Set ENABLE_MODEL_RELOAD=true to enable it.",
+        )
+
+    if not load_model():
+        raise HTTPException(status_code=500, detail="Reload failed: model could not be loaded")
+
+    return {
+        "status": "reloaded",
+        "model_loaded": _model_loaded,
+        "model_path": os.getenv("MODEL_PATH", "models/production_model.pkl"),
+    }
