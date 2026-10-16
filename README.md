@@ -106,11 +106,30 @@ Reproduced locally on an NVIDIA RTX 3050 Ti (4 GB).
 | Metric | Value |
 |--------|-------|
 | Dataset | [Rossmann Store Sales](https://www.kaggle.com/c/rossmann-store-sales) (Kaggle) |
-| Training rows | 844,392 |
-| Model | `RandomForestRegressor` (scikit-learn) |
-| **MAE** | **869.51** |
-| **RMSE** | **1295.21** |
-| Target | `log1p(Sales)`, inverted with `expm1` at inference |
+| Training rows | 844,338 |
+| Stores | 1,115 |
+| Model | `RandomForestRegressor` (100 trees, max depth 20) |
+| Split | **Time-based** 80/20 (not random — see below) |
+| **MAE** | **876.27** |
+| **RMSE** | **1284.26** |
+| **R²** | **0.8243** |
+| Target | `Sales` (raw, no log transform) |
+
+### Why the split is time-based
+
+A random split leaks for this dataset: the same store appears in train and test
+on adjacent days, so the model can memorise store-level patterns and the
+reported error is optimistic. Sorting by date and holding out the last 20% is
+the only honest evaluation for a forecasting task. The MAE is slightly higher
+than a random split would give — that is the point.
+
+### Honest framing
+
+Mean daily sales are ~5,700, so MAE 876 is roughly 15% error. The gap between
+MAE and RMSE indicates a heavy-tailed error distribution: a small number of days
+are badly wrong, almost certainly around holidays and the Christmas peak, which
+the calendar features do not fully encode. The next step would be a
+holiday-proximity feature and a separate model for the November–December window.
 
 The Kaggle competition's winning solutions reach ~0.10 RMSPE using gradient
 boosting plus extensive feature engineering (store-level history, holiday
@@ -261,14 +280,14 @@ python src/scripts/build_feature_store.py # train_cleaned
 
 ```bash
 conda env create -f environments/rossmann-env.yml
-conda activate rossmann-env
+conda activate rossmann-sales-env
 ```
 
 ### 2. Database Setup
 
 ```bash
 docker compose up -d postgres
-python -m src.scripts.init_db
+python -m src.scripts.build_feature_store.py
 ```
 
 ### 3. Run API and Dashboards

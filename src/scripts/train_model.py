@@ -6,8 +6,7 @@ import mlflow
 import mlflow.sklearn
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sqlalchemy import create_engine
 
 # 1. SETUP EXPERIMENT
@@ -30,25 +29,41 @@ def train(n_estimators, max_depth):
     X = df.drop(columns=['Sales', 'Date', 'Customers', 'StateHoliday'])
     y = df['Sales']
     X = pd.get_dummies(X, drop_first=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Time-based split. A random split leaks: the same store appears in train
+    # and test on adjacent days, so the model can memorise store-level patterns
+    # and the reported error is optimistic. Sorting by date and cutting the last
+    # 20% is the only honest evaluation for a forecasting task.
+    if "Date" in df.columns:
+        order = pd.to_datetime(df["Date"]).sort_values().index
+        X, y = X.loc[order], y.loc[order]
+    cut = int(len(X) * 0.8)
+    X_train, X_test = X.iloc[:cut], X.iloc[cut:]
+    y_train, y_test = y.iloc[:cut], y.iloc[cut:]
 
     # 4. TRAIN & LOG
     with mlflow.start_run():
         # Log the settings (So we know which combo created this result)
         mlflow.log_param("n_estimators", n_estimators)
         mlflow.log_param("max_depth", max_depth)
+        mlflow.log_param("split", "time_based_80_20")
 
         # Train
         model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, n_jobs=-1)
         model.fit(X_train, y_train)
 
-        # Evaluate
+        # Evaluate. RMSE and R2 are logged because the Dash dashboard reads
+        # them; logging only MAE left those panels showing 0.00.
         predictions = model.predict(X_test)
         mae = mean_absolute_error(y_test, predictions)
-        print(f"Result: MAE = {mae:.2f}")
+        rmse = mean_squared_error(y_test, predictions) ** 0.5
+        r2 = r2_score(y_test, predictions)
+        print(f"Result: MAE = {mae:.2f} | RMSE = {rmse:.2f} | R2 = {r2:.4f}")
 
-        # Log metric
+        # Log metrics
         mlflow.log_metric("mae", mae)
+        mlflow.log_metric("rmse", rmse)
+        mlflow.log_metric("r2", r2)
 
         # Artifact logging is best-effort. The tracking server may use an
         # artifact root this process cannot write to (for example a host path
