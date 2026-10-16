@@ -266,6 +266,11 @@ services:
   airflow-webserver:
     image: rossmann-airflow:latest
     container_name: rossmann_airflow_webserver
+    # Run as the host user with GID 0. The Airflow image requires GID 0,
+    # and the default uid 50000 cannot write to the host-owned bind
+    # mounts — which is why promoting a retrained model failed with
+    # Permission denied.
+    user: "${AIRFLOW_UID:-1000}:0"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     build:
@@ -297,7 +302,11 @@ services:
       - airflow_logs:/opt/airflow/logs
       # Promotion writes the served model here. ./src is a read-only bind mount,
       # so the exports need their own writable volume.
-      - airflow_models:/opt/airflow/models
+      # Bind mount, not a named volume: run_stack.sh starts the API on the
+      # host reading ./models, so a named volume would put the promoted
+      # model somewhere the API cannot see — promotion would succeed and
+      # serving would not change.
+      - ./models:/opt/airflow/models
     ports:
       - "8083:8080"
     command: webserver
@@ -316,6 +325,11 @@ services:
   airflow-scheduler:
     image: rossmann-airflow:latest
     container_name: rossmann_airflow_scheduler
+    # Run as the host user with GID 0. The Airflow image requires GID 0,
+    # and the default uid 50000 cannot write to the host-owned bind
+    # mounts — which is why promoting a retrained model failed with
+    # Permission denied.
+    user: "${AIRFLOW_UID:-1000}:0"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     build:
@@ -335,7 +349,11 @@ services:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - airflow_logs:/opt/airflow/logs
-      - airflow_models:/opt/airflow/models
+      # Bind mount, not a named volume: run_stack.sh starts the API on the
+      # host reading ./models, so a named volume would put the promoted
+      # model somewhere the API cannot see — promotion would succeed and
+      # serving would not change.
+      - ./models:/opt/airflow/models
     command: scheduler
     depends_on:
       - airflow-webserver
