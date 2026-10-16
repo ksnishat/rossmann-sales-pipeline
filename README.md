@@ -41,7 +41,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 📊 **Prometheus instrumentation** — the API now exposes request, latency, prediction and model-loaded metrics
 🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
 🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
-✅ **Test suite green** — 25/25 passing
+✅ **Test suite green** — 75 unit + 8 live integration tests passing
 
 ## Architecture
 
