@@ -7,12 +7,16 @@ Endpoints:
 """
 
 import os
+import sys
 import time
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from auth import auth_enabled, require_api_key  # noqa: E402
 
 # Prometheus instrumentation
 try:
@@ -155,10 +159,11 @@ def health_check():
         "status": "healthy",
         "service": "rossmann-sales-api",
         "model_loaded": _model_loaded,
+        "auth_enabled": auth_enabled(),
     }
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(require_api_key)])
 def predict_sales(data: SalesInput):
     """
     Predict daily sales for a Rossmann store.
@@ -218,7 +223,7 @@ def observe_drift(input_data: dict) -> dict:
         return {"enabled": True, "recorded": False, "error": str(exc)}
 
 
-@app.get("/drift")
+@app.get("/drift", dependencies=[Depends(require_api_key)])
 def drift_report():
     """Per-feature PSI against the training baseline."""
     if _drift_monitor is None or not _drift_monitor.enabled:
@@ -257,7 +262,7 @@ def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.post("/admin/reload-model")
+@app.post("/admin/reload-model", dependencies=[Depends(require_api_key)])
 def reload_model():
     """Re-read the promoted model from disk without restarting the API.
 
