@@ -30,7 +30,7 @@ GRAFANA_PORT=3003
 PROJECT="rossmann"
 ENV_NAME="rossmann-sales-env"
 API_IMPORT="from app.api import app"
-MODEL_ENV="MODEL_PATH=models/production_model.pkl MODEL_COLUMNS_PATH=models/model_columns.pkl"
+MODEL_ENV="MODEL_PATH=models/production_model.pkl MODEL_COLUMNS_PATH=models/model_columns.pkl DRIFT_BASELINE_PATH=models/drift_baseline.json ENABLE_MODEL_RELOAD=true"
 
 log()  { printf '\033[1;34m[%s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*"; }
 ok()   { printf '  \033[0;32m\u2713\033[0m %s\n' "$*"; }
