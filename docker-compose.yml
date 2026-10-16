@@ -345,6 +345,10 @@ services:
       - DATABASE_URL=postgresql://rossmann:changeme123@postgres:5432/rossmann
       - ROSSMANN_SRC=/opt/airflow/src
       - ROSSMANN_MODEL_DIR=/opt/airflow/models
+      # The retraining DAG calls /admin/reload-model and /monitoring, both of
+      # which enforce X-API-Key. Without this the DAG got a 401 and failed.
+      # Must match the API_KEY the serving API was started with.
+      - API_KEY=${API_KEY:-demo-secret-key}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
