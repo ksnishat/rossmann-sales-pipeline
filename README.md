@@ -437,7 +437,7 @@ Built with **Dash Bootstrap Components** for a responsive UI.
 | **Dash dashboard not loading** | Check port 8050 is not in use; verify `src/dash_app/app.py` imports |
 | **MLflow UI not accessible** | Ensure the MLflow container has the correct artifact store configuration |
 | **Prediction errors** | Check the input feature schema matches the training features exactly |
-| **Grafana shows "No data"** | Re-run `provision_dashboards.py` so the datasource points at the Prometheus container IP |
+| **Grafana shows "No data"** | The provisioning or dashboards directory is not mounted, or Grafana is not on the `mlops-stack` network so it cannot resolve `prom_<project>` | Run `python3 provision_dashboards.py` — it reports which of the two it is |
 | **Pods crash on K8s** | Increase resource limits in `helm-chart/values.yaml`; check PVC binding |
 | **GitHub Actions failing** | Verify secrets (`GITHUB_TOKEN`, `KUBE_CONFIG_DATA`) are configured |
 
