@@ -291,6 +291,18 @@ They assert the API returns a positive forecast, that a missing required field
 is rejected with 422, that Prometheus is actually scraping the API (not merely
 healthy), and that MLflow, Grafana and MinIO are reachable.
 
+## Screenshots
+
+Captured from the running stack, not mocked up.
+
+### Grafana — model diagnostics
+
+![Rossmann Grafana dashboard](docs/screenshots/grafana-dashboard.png)
+
+### API — OpenAPI schema
+
+![Rossmann Swagger UI](docs/screenshots/api-swagger.png)
+
 ## Monitoring & Live Demo
 
 ```bash
