@@ -1,0 +1,57 @@
+# ============================================================
+# Slim serving image for Rossmann.
+#
+# The full Dockerfile installs requirements.txt, which is a complete
+# environment freeze (DVC, Jupyter, MLflow, celery, ...) and produces a
+# multi-gigabyte image that does not fit a free or cheap cloud tier.
+#
+# This image installs requirements-serve.txt instead: just the model runtime.
+# The pickled estimator is loaded with joblib, so the only heavy dependency is
+# scikit-learn. Training and orchestration stay in the full image.
+# ============================================================
+
+FROM python:3.10-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-serve.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements-serve.txt
+
+# ---- Runtime ----
+FROM python:3.10-slim AS runtime
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /install /usr/local
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+COPY src/ ./src/
+COPY models/ ./models/
+
+ENV PATH=/usr/local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/src \
+    MODEL_PATH=models/production_model.pkl \
+    MODEL_COLUMNS_PATH=models/model_columns.pkl \
+    DRIFT_BASELINE_PATH=models/drift_baseline.json
+
+RUN chown -R appuser:appuser /app
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "/app/src"]

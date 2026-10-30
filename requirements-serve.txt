@@ -1,0 +1,14 @@
+# Minimal serving dependencies for the Rossmann prediction API.
+#
+# requirements.txt is a full environment freeze: it includes DVC, Jupyter,
+# MLflow, Airflow-adjacent packages and celery, which together produce a
+# multi-gigabyte image. The API only needs a model file, pandas to shape one
+# row, and FastAPI to serve it, so the demo image installs just this.
+fastapi==0.128.0
+uvicorn==0.40.0
+pydantic==2.12.5
+pandas==2.3.3
+numpy==2.2.6
+scikit-learn==1.7.2
+joblib==1.5.3
+prometheus-client==0.23.1
