@@ -6,14 +6,27 @@
 # needs must be present here. A missing dependency makes the DAG fail to parse
 # and it silently disappears from the Airflow UI rather than reporting an error,
 # which is why the DAG imports them lazily inside the task callables.
-FROM apache/airflow:2.7.1
+#
+# Base image: python3.10, not the default python3.8.
+#
+# The DAG promotes a model that was trained on the host, and the host runs
+# Python 3.10 with NumPy 2.x. A Python 3.8 / NumPy 1.x container cannot unpickle
+# that file at all: NumPy 2 renamed `numpy.core` to `numpy._core`, so loading a
+# NumPy-2 pickle under NumPy 1 raises
+#
+#     ModuleNotFoundError: No module named 'numpy._core'
+#
+# and the promote task failed with `KeyError: 244` before that. Matching the
+# host's Python and NumPy major version is what makes the handoff work.
+#
+# The 2.9.3-python3.10 image is Debian 12 (bookworm), which also removes three
+# workarounds the 2.7.1 bullseye image needed: the dead apt.postgresql.org
+# source, the dropped bullseye-security repo, and the pysqlite3-binary shim
+# (bookworm ships sqlite 3.40, above the 3.35 ChromaDB requires).
+FROM apache/airflow:2.9.3-python3.10
 
 USER root
-# The apache/airflow:2.7.1 base image ships an apt source for
-# apt.postgresql.org that no longer publishes a Release file for bullseye, so a
-# plain `apt-get update` fails with exit code 100. Drop that source first.
-RUN rm -f /etc/apt/sources.list.d/pgdg.list && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*
 
@@ -21,11 +34,26 @@ USER airflow
 
 # psycopg2-binary is needed to read the feature store from Postgres. The binary
 # wheel avoids a source build, which would need libpq-dev and pg_config.
+#
+# The version set below is the intersection of three constraints, verified by
+# running each combination in this image:
+#
+#   1. Airflow 2.9.3 requires sqlalchemy<2.0, so SQLAlchemy stays at 1.4.x.
+#   2. pandas >=2.2 calls Engine.cursor(), which SQLAlchemy 1.4 does not have,
+#      so pandas is capped at 2.1.4. Verified: 2.3.3 and 2.2.3 both fail with
+#      "'Engine' object has no attribute 'cursor'"; 2.1.4 reads the table.
+#   3. The model is pickled on the host by scikit-learn 1.7.2, so sklearn must
+#      match exactly — 1.3.2 cannot load it ("no attribute 'monotonic_cst'").
+#
+# numpy is left at the image default (1.26.4). It is new enough to expose the
+# `numpy._core` alias that NumPy-2 pickles reference, so it loads a host-trained
+# model correctly. The original failure was numpy 1.24.4, which predates that
+# alias and raised "No module named 'numpy._core'".
 RUN pip install --no-cache-dir \
+    "pandas==2.1.4" \
+    "scikit-learn==1.7.2" \
     psycopg2-binary \
-    sqlalchemy \
-    pandas \
-    scikit-learn \
+    "sqlalchemy<2.0" \
     joblib \
     mlflow \
     boto3 \
