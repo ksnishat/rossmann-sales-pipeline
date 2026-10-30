@@ -18,7 +18,15 @@ THEME = dbc.themes.SOLAR
 # External CSS
 EXTRA_STYLESHEETS = ["https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"]
 
-app = dash.Dash(__name__, external_stylesheets=EXTRA_STYLESHEETS, theme=THEME)
+# `theme=` was removed in Dash 4. The Bootstrap theme is applied through
+# external_stylesheets instead — passing theme= here raised
+# "TypeError: Dash() got an unexpected keyword argument 'theme'" at import,
+# which meant the dashboard could not start at all on the pinned version.
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[THEME] + EXTRA_STYLESHEETS,
+    suppress_callback_exceptions=True,
+)
 app.title = "Rossmann Sales Analytics Dashboard"
 server = app.server
 
@@ -56,12 +64,15 @@ NAVBAR = dbc.Navbar(
                     ),
                     dbc.Col(
                         dbc.Collapse(
-                            dbc.NavbarNav(
+                            # dbc 2.x removed NavbarNav; nav links live inside a
+                            # Nav with navbar=True, which is what renders them
+                            # horizontally inside the collapsed navbar.
+                            dbc.Nav(
                                 [
-                                    dbc.NavLink("Home", href="/", id="home", active_class="active"),
-                                    dbc.NavLink("Stores", href="/stores", id="stores", active_class="active"),
-                                    dbc.NavLink("Predict", href="/predict", id="predict", active_class="active"),
-                                    dbc.NavLink("Metrics", href="/metrics", id="metrics", active_class="active"),
+                                    dbc.NavLink("Home", href="/", id="home", active="exact"),
+                                    dbc.NavLink("Stores", href="/stores", id="stores", active="exact"),
+                                    dbc.NavLink("Predict", href="/predict", id="predict", active="exact"),
+                                    dbc.NavLink("Metrics", href="/metrics", id="metrics", active="exact"),
                                 ],
                                 className="ms-auto",
                                 navbar=True,

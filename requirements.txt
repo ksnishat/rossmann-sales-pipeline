@@ -241,3 +241,8 @@ streamlit
 gunicorn
 psycopg2-binary
 prometheus-client
+
+# Rate limiting (per-caller, see src/ratelimit.py)
+slowapi==0.1.10
+# Retry/backoff for outbound calls (Ollama, MLflow, MinIO, Postgres)
+tenacity>=9.0,<10.0

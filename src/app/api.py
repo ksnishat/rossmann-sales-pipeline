@@ -12,11 +12,14 @@ import time
 
 import joblib
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import auth_enabled, require_api_key  # noqa: E402
+from ratelimit import PREDICT_LIMIT, limiter  # noqa: E402
+from ratelimit import install as install_rate_limit
+from versioning import install as install_versioning
 
 # Prometheus instrumentation
 try:
@@ -114,6 +117,7 @@ def load_drift_monitor() -> bool:
 
 
 app = FastAPI(title="Rossmann Sales Prediction API")
+install_rate_limit(app)
 
 
 # Load model at startup
@@ -164,9 +168,12 @@ def health_check():
 
 
 @app.post("/predict", dependencies=[Depends(require_api_key)])
-def predict_sales(data: SalesInput):
+@limiter.limit(PREDICT_LIMIT)
+def predict_sales(request: Request, data: SalesInput):
     """
     Predict daily sales for a Rossmann store.
+
+    Rate limited to ``RATE_LIMIT_PREDICT`` (default 60/minute) per API key.
 
     Returns:
         JSON with predicted_sales (float)
@@ -285,3 +292,14 @@ def reload_model():
         "model_loaded": _model_loaded,
         "model_path": os.getenv("MODEL_PATH", "models/production_model.pkl"),
     }
+
+
+# ---------------------------------------------------------------------------
+# API versioning
+# ---------------------------------------------------------------------------
+# Called at the *end* of the module on purpose. `install_versioning` clones the
+# routes that already exist, so running it next to `install_rate_limit(app)`
+# (before any @app.post/@app.get has executed) would find nothing to clone and
+# silently alias zero endpoints. Keeping it last means every route defined above
+# gets a /v1 alias, and the unversioned paths keep working unchanged.
+install_versioning(app)

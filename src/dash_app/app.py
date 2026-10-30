@@ -157,7 +157,10 @@ HOME_LAYOUT = dbc.Container(
                             options=[
                                 {"label": "Daily", "value": "D"},
                                 {"label": "Weekly", "value": "W"},
-                                {"label": "Monthly", "value": "M"},
+                                # "ME" is the pandas >= 2.2 month-end alias; the
+                                # bare "M" raises a FutureWarning and is removed
+                                # in a future pandas.
+                                {"label": "Monthly", "value": "ME"},
                             ],
                             value="D",
                             clearable=False,
@@ -720,9 +723,19 @@ def update_home_charts(start_date, end_date, store_type, promo, agg_freq):
     total_stores = f"{df['Store'].nunique()}"
     promo_rate = f"{(df['Promo'].mean() * 100):.1f}%"
 
-    # Aggregate
+    # Aggregate.
+    #
+    # Two defects were fixed here. Chaining
+    # `groupby("Store").resample(freq)["Sales"]` consumed Store as a grouping
+    # level so it did not survive reset_index, and the later
+    # `groupby("Date")["Sales"]` then raised "Column not found: Sales" for every
+    # non-daily frequency. Resampling Date alone keeps the column. Promo is
+    # carried through so the distribution chart below still has its x axis.
     if agg_freq != "D":
-        df = df.set_index("Date").groupby("Store").resample(agg_freq)["Sales"].sum().reset_index()
+        promo_by_date = df.groupby("Date")["Promo"].max()
+        df = df.set_index("Date")[["Sales"]].resample(agg_freq).sum().reset_index()
+        promoted = df["Date"].map(promo_by_date)
+        df["Promo"] = promoted.where(promoted.notna(), False).astype(bool)
 
     # Sales trend chart
     trend_fig = px.line(
@@ -761,6 +774,10 @@ def update_store_comparison(selected_stores, metric):
 
     df = DATA_CACHE["sales"][DATA_CACHE["sales"]["Store"].isin(selected_stores)].copy()
 
+    # The aggregation result is always named "Sales". Passing the raw `metric`
+    # value ("AvgSales", "StdSales") to px.bar(y=...) raised
+    # "KeyError: Column not found: Sales", so the chart was broken for every
+    # option except the default.
     if metric == "Sales":
         agg_df = df.groupby("Store")["Sales"].sum().reset_index()
         title = "Total Sales by Store"
@@ -775,7 +792,7 @@ def update_store_comparison(selected_stores, metric):
     fig = px.bar(
         agg_df,
         x="Store",
-        y=metric,
+        y="Sales",
         title=title,
         color="Store",
         color_continuous_scale="Viridis",
