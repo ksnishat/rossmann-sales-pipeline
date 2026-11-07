@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import auth_enabled, require_api_key  # noqa: E402
-from ratelimit import DRIFT_LIMIT, PREDICT_LIMIT, limiter  # noqa: E402
+from ratelimit import ADMIN_LIMIT, DRIFT_LIMIT, PREDICT_LIMIT, limiter  # noqa: E402
 from ratelimit import install as install_rate_limit
 from versioning import install as install_versioning
 
@@ -271,7 +271,8 @@ def metrics():
 
 
 @app.post("/admin/reload-model", dependencies=[Depends(require_api_key)])
-def reload_model():
+@limiter.limit(ADMIN_LIMIT)
+def reload_model(request: Request):
     """Re-read the promoted model from disk without restarting the API.
 
     The retraining DAG promotes the best MLflow run, then calls this so the
