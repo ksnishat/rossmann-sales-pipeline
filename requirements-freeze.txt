@@ -1,21 +1,19 @@
-# Auto-generated lock file. Do not edit by hand.
-# Source: requirements.txt
-# Regenerate: python tools/gen_lock.py requirements.txt requirements.lock
+# Full environment freeze, captured from the development conda env.
 #
-# Pins every direct and transitive dependency to the exact version pip
-# resolved. Installing from this file is reproducible; installing from
-# requirements.txt is not, because unpinned ranges resolve differently as
-# upstream releases.
+# This is NOT the dependency declaration. The declaration lives in
+# pyproject.toml and the resolved set lives in uv.lock -- install with
+# `uv sync`. This file is kept only as a historical record of the exact
+# environment the models were originally trained in, and as a fallback for
+# reproducing that environment with plain pip.
 #
-# Platform-specific packages (CUDA/nvidia) are excluded and should be
-# installed via conda or the platform's package manager.
+# It contains 244 packages including DVC, Jupyter, MLflow and celery, most of
+# which the project does not import. Do not install it into a serving image.
 
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.2
 aiohttp-retry==2.9.1
 aiosignal==1.4.0
 alembic==1.17.2
-altair==6.3.0
 amqp==5.3.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
@@ -52,13 +50,10 @@ configobj==5.0.9
 contourpy==1.3.2
 cryptography==46.0.3
 cycler==0.12.1
-dash==4.5.0
-dash-bootstrap-components==2.0.4
 databricks-sdk==0.76.0
 debugpy==1.8.19
 decorator==5.2.1
 defusedxml==0.7.1
-Deprecated==1.3.1
 dictdiffer==0.9.0
 diskcache==5.6.3
 distro==1.9.0
@@ -110,7 +105,6 @@ ipywidgets==8.1.8
 isoduration==20.11.0
 iterative-telemetry==0.0.10
 itsdangerous==2.2.0
-janus==2.0.0
 jedi==0.19.2
 Jinja2==3.1.6
 joblib==1.5.3
@@ -133,7 +127,6 @@ jupyterlab_widgets==3.0.16
 kiwisolver==1.4.9
 kombu==5.6.1
 lark==1.3.1
-limits==5.8.0
 Mako==1.3.10
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
@@ -145,7 +138,6 @@ mlflow==3.8.1
 mlflow-skinny==3.8.1
 mlflow-tracing==3.8.1
 multidict==6.7.0
-narwhals==2.28.0
 nbclient==0.10.4
 nbconvert==7.16.6
 nbformat==5.10.4
@@ -154,6 +146,7 @@ networkx==3.4.2
 notebook==7.5.1
 notebook_shim==0.2.4
 numpy==2.2.6
+nvidia-nccl-cu12==2.28.9
 omegaconf==2.3.0
 opentelemetry-api==1.39.1
 opentelemetry-proto==1.39.1
@@ -169,7 +162,6 @@ pathspec==0.12.1
 pexpect==4.9.0
 pillow==12.0.0
 platformdirs==4.5.1
-plotly==7.1.0
 prometheus_client==0.23.1
 prompt_toolkit==3.0.52
 propcache==0.4.1
@@ -185,7 +177,6 @@ pycparser==2.23
 pydantic==2.12.5
 pydantic-settings==2.12.0
 pydantic_core==2.41.5
-pydeck==0.9.3
 pydot==4.0.1
 pygit2==1.18.2
 Pygments==2.19.2
@@ -194,13 +185,11 @@ pyparsing==3.3.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-json-logger==4.0.0
-python-multipart==0.0.33
 pytz==2025.2
 PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
 requests==2.32.5
-retrying==1.4.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rfc3987-syntax==1.1.0
@@ -215,12 +204,10 @@ scmrepo==3.6.0
 seaborn==0.13.2
 semver==3.0.4
 Send2Trash==1.8.3
-setuptools==84.2.1
 shellingham==1.5.4
 shortuuid==1.0.13
 shtab==1.8.0
 six==1.17.0
-slowapi==0.1.10
 smmap==5.0.2
 soupsieve==2.8.1
 SQLAlchemy==2.0.45
@@ -228,9 +215,7 @@ sqlparse==0.5.5
 sqltrie==0.11.2
 stack-data==0.6.3
 starlette==0.50.0
-streamlit==1.67.0
 tabulate==0.9.0
-tenacity==9.2.1
 terminado==0.18.1
 threadpoolctl==3.6.0
 tinycss2==1.4.0
@@ -249,16 +234,26 @@ urllib3==2.6.2
 uvicorn==0.40.0
 vine==5.1.0
 voluptuous==0.16.0
-watchdog==7.1.0
 wcwidth==0.2.14
 webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
-websockets==17.4
 Werkzeug==3.1.4
 widgetsnbextension==4.0.15
-wrapt==2.5.2
 xgboost==3.1.2
 yarl==1.22.0
 zc.lockfile==4.0
 zipp==3.23.0
+# Dashboard
+dash
+dash-bootstrap-components
+plotly
+streamlit
+gunicorn
+psycopg2-binary
+prometheus-client
+
+# Rate limiting (per-caller, see src/ratelimit.py)
+slowapi==0.1.10
+# Retry/backoff for outbound calls (Ollama, MLflow, MinIO, Postgres)
+tenacity>=9.0,<10.0

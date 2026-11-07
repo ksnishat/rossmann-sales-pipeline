@@ -226,9 +226,10 @@ distinction matters, so here is exactly where it stands.
 ### 1. Install dependencies
 
 ```bash
-conda create -n rossmann-sales-env python=3.10 -y
-conda activate rossmann-sales-env
-pip install -r requirements.txt
+# uv reads pyproject.toml and installs the exact set pinned in uv.lock.
+pip install uv
+uv sync --extra dev
+source .venv/bin/activate
 ```
 
 ### 2. Get the data
