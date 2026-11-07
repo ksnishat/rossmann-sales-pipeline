@@ -157,6 +157,19 @@ class TestDriftMonitor:
         assert "s1" in payload["features"]
 
 
+def _fake_request():
+    """Minimal stand-in for the Starlette Request that @limiter.limit requires.
+
+    The drift handler is rate limited, so slowapi inspects the signature for a
+    request argument. These tests call the handler directly rather than through
+    TestClient, so they must supply one.
+    """
+    from starlette.requests import Request
+
+    return Request({"type": "http", "method": "GET", "path": "/drift",
+                    "headers": [], "client": ("127.0.0.1", 1234)})
+
+
 class TestApiDriftWiring:
     """The Rossmann API observes request features, not a DataFrame."""
 
@@ -193,7 +206,7 @@ class TestApiDriftWiring:
         from src.app import api
 
         monkeypatch.setattr(api, "_drift_monitor", self._monitor())
-        body = api.drift_report()
+        body = api.drift_report(_fake_request())
         assert body["enabled"] is True
         assert body["status"] == "insufficient_data"
 
@@ -201,4 +214,4 @@ class TestApiDriftWiring:
         from src.app import api
 
         monkeypatch.setattr(api, "_drift_monitor", None)
-        assert api.drift_report()["enabled"] is False
+        assert api.drift_report(_fake_request())["enabled"] is False

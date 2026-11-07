@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import auth_enabled, require_api_key  # noqa: E402
-from ratelimit import PREDICT_LIMIT, limiter  # noqa: E402
+from ratelimit import DRIFT_LIMIT, PREDICT_LIMIT, limiter  # noqa: E402
 from ratelimit import install as install_rate_limit
 from versioning import install as install_versioning
 
@@ -231,7 +231,8 @@ def observe_drift(input_data: dict) -> dict:
 
 
 @app.get("/drift", dependencies=[Depends(require_api_key)])
-def drift_report():
+@limiter.limit(DRIFT_LIMIT)
+def drift_report(request: Request):
     """Per-feature PSI against the training baseline."""
     if _drift_monitor is None or not _drift_monitor.enabled:
         return {

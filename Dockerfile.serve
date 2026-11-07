@@ -1,9 +1,9 @@
 # ============================================================
 # Slim serving image for Rossmann.
 #
-# The full Dockerfile installs requirements.txt, which is a complete
-# environment freeze (DVC, Jupyter, MLflow, celery, ...) and produces a
-# multi-gigabyte image that does not fit a free or cheap cloud tier.
+# The full Dockerfile installs the whole dependency set from uv.lock, which
+# includes DVC, Jupyter, MLflow and celery, and produces a multi-gigabyte image
+# that does not fit a free or cheap cloud tier.
 #
 # This image installs requirements-serve.txt instead: just the model runtime.
 # The pickled estimator is loaded with joblib, so the only heavy dependency is
