@@ -116,6 +116,17 @@ def load_drift_monitor() -> bool:
         return False
 
 
+# Structured JSON logging. src/app/utils/logging_config.py existed but was
+# never called, so the service logged unstructured text and the request_id
+# context it maintains was always "N/A". Installing it here is what makes the
+# python-json-logger dependency in pyproject.toml actually used.
+try:
+    from app.utils.logging_config import setup_logging
+
+    setup_logging()
+except Exception as exc:  # pragma: no cover - logging must never block startup
+    print(f"WARNING: structured logging unavailable ({exc}); using defaults")
+
 app = FastAPI(title="Rossmann Sales Prediction API")
 install_rate_limit(app)
 

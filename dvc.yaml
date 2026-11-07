@@ -43,15 +43,10 @@ stages:
     desc: Create lag features, rolling stats, promo features (gold layer)
 
   # === TRAIN-TEST SPLIT ===
-  split_data:
-    cmd: python src/scripts/split_data.py
-    deps:
-      - src/scripts/split_data.py
-      - data/gold/sales_features.dvc
-    outs:
-      - data/gold/train_features.dvc
-      - data/gold/test_features.dvc
-    desc: Temporal train-test split (TimeSeriesSplit compatible)
+  # There is no split_data stage: src/scripts/split_data.py never existed.
+  # feature_engineer_gold.py already performs the temporal 80/20 split and
+  # writes train_features.csv and test_features.csv, so a separate stage would
+  # duplicate work that has already happened.
 
   # === MODEL TRAINING ===
   train_model:
