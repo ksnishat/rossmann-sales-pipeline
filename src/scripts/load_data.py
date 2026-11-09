@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 # Configurable so the same code runs on the host and in a container.
 db_url = os.getenv(
     "DATABASE_URL",
-    "postgresql://rossmann:changeme123@localhost:5433/rossmann",
+    "postgresql+psycopg2://rossmann:changeme123@localhost:5433/rossmann",
 )
 engine = create_engine(db_url)
 

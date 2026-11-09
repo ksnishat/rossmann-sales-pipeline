@@ -29,8 +29,12 @@ def retrain_model(**context):
     from scripts.train_model import train
 
     train(
-        n_estimators=int(os.getenv("ROSSMANN_N_ESTIMATORS", "50")),
-        max_depth=int(os.getenv("ROSSMANN_MAX_DEPTH", "10")),
+        # These now map onto HistGradientBoosting's max_iter and max_leaf_nodes.
+        # 600 rounds is what the measured MAE plateau needs; 50 was a
+        # RandomForest default and underfits this estimator badly. See the
+        # comment in scripts/train_model.py for the size/accuracy tradeoff.
+        n_estimators=int(os.getenv("ROSSMANN_N_ESTIMATORS", "600")),
+        max_depth=int(os.getenv("ROSSMANN_MAX_DEPTH", "7")),
     )
     return {"status": "trained", "ds": context["ds"]}
 

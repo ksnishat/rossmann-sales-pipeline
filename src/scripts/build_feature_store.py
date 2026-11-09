@@ -20,7 +20,7 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine
 
-DEFAULT_DB_URL = "postgresql://rossmann:changeme123@localhost:5433/rossmann"
+DEFAULT_DB_URL = "postgresql+psycopg2://rossmann:changeme123@localhost:5433/rossmann"
 
 # Columns the model expects, in the order it was trained on. Kept explicit so a
 # schema change fails loudly here rather than silently shifting feature order.

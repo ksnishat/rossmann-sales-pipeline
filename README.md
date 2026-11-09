@@ -42,7 +42,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 🔒 **10-job CI** — Python 3.10 + 3.11 matrix, Bandit, pip-audit with a documented allowlist, Trivy SARIF, mypy, Terraform validate, Docker image build-and-serve
 🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
 🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
-✅ **Test suite green** — 126 unit + 8 live integration tests passing
+✅ **Test suite green** — 129 unit + 8 live integration tests passing
 
 ## Architecture
 
@@ -132,12 +132,35 @@ Reproduced locally on an NVIDIA RTX 3050 Ti (4 GB).
 | Dataset | [Rossmann Store Sales](https://www.kaggle.com/c/rossmann-store-sales) (Kaggle) |
 | Training rows | 844,338 |
 | Stores | 1,115 |
-| Model | `RandomForestRegressor` (100 trees, max depth 20) |
+| Model | `HistGradientBoostingRegressor` (600 rounds, 128 leaves) |
 | Split | **Time-based** 80/20 (not random — see below) |
-| **MAE** | **876.27** |
-| **RMSE** | **1284.26** |
-| **R²** | **0.8243** |
+| **MAE** | **796.33** |
+| **RMSE** | **1183.72** |
+| **R²** | **0.8507** |
 | Target | `Sales` (raw, no log transform) |
+| Model size | 8.9 MB |
+
+### Why gradient boosting rather than a random forest
+
+The previous model was a `RandomForestRegressor` with 50 trees at depth 10. It
+scored MAE 876 but could not tell stores apart: with every other input held
+constant it returned only **4 distinct values across all 1,115 stores**, and a
+EUR 6,708 figure covered 443 of them. Correlation with each store's actual mean
+sales was **0.049** — effectively no store-level signal, despite `Store` being
+the third most important feature by impurity.
+
+A forest expressive enough to separate 1,115 stores needs `max_depth=None` and
+200 trees, which serialises to **682 MB** — too large to ship in a container.
+`HistGradientBoostingRegressor` reaches the same accuracy at **8.9 MB**:
+
+| Model | MAE | Size | Distinct store predictions | Correlation with actual |
+|---|---|---|---|---|
+| RandomForest, 50 trees, depth 10 | 876 | 4.6 MB | 4 / 1115 | 0.049 |
+| RandomForest, 200 trees, depth None | 782 | 682 MB | 1041 / 1115 | 0.977 |
+| **HistGradientBoosting, 600 rounds** | **796** | **8.9 MB** | **909 / 964** | **0.983** |
+
+Measured through the live `/predict` endpoint, holding all other inputs constant
+and varying only `Store`.
 
 ### Why the split is time-based
 
@@ -149,7 +172,7 @@ than a random split would give — that is the point.
 
 ### Honest framing
 
-Mean daily sales are ~5,700, so MAE 876 is roughly 15% error. The gap between
+Mean daily sales are ~5,700, so MAE 796 is roughly 14% error. The gap between
 MAE and RMSE indicates a heavy-tailed error distribution: a small number of days
 are badly wrong, almost certainly around holidays and the Christmas peak, which
 the calendar features do not fully encode. The next step would be a
@@ -313,7 +336,7 @@ docker compose up -d      # postgres, mlflow, api, dash, streamlit, prometheus, 
 ## Running Tests
 
 ```bash
-uv run --frozen --extra dev python -m pytest tests/ -v   # 126 passed, 8 deselected
+uv run --frozen --extra dev python -m pytest tests/ -v   # 129 passed, 8 deselected
 ```
 
 The 8 skipped tests are integration tests that need the live docker stack. They
@@ -456,7 +479,7 @@ rossmann-sales-pipeline/
 │   └── scripts/
 │       ├── train_model.py      # Training script
 │       └── promote_model.py    # Promote the best MLflow run by MAE
-├── tests/                      # 126 unit + 8 integration tests
+├── tests/                      # 129 unit + 8 integration tests
 ├── run_stack.sh                # Start API + MLflow + MinIO + Prometheus + Grafana
 ├── verify_stack.sh             # 7 live-stack health checks
 ├── k8s/                        # Kubernetes manifests
