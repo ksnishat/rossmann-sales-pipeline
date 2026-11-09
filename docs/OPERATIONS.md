@@ -29,7 +29,7 @@ conda activate rossmann-sales-env
 ### 2. Database Setup
 ```bash
 docker compose up -d postgres
-python -m src.scripts.build_feature_store.py
+python src/scripts/build_feature_store.py
 ```
 
 ### 3. Run API and Dashboards
@@ -70,10 +70,7 @@ python3 provision_dashboards.py rossmann   # datasource + dashboard
 | **MLflow** | http://localhost:5003 | N/A |
 | **PostgreSQL** | localhost:5433 | rossmann / changeme123 |
 
-> **All four stacks at once:** the root `start_all_stacks.sh` starts the API,
-> MLflow, MinIO, Prometheus, Grafana, TLS proxy and this dashboard for every
-> project, then `verify_live_stack.sh` checks 32 endpoints. The ports in the
-> table above are the ones that script uses.
+> **Running the stack:** `./run_stack.sh` starts this project's API, MLflow, MinIO, Prometheus and Grafana. Dashboard: `python -m src.dash_app.app` (port 8503). Airflow and the feature store run through `docker compose`. The four-project orchestrator is kept in the author's workspace and is not part of this repository.
 
 ### Exposed metrics
 | Metric | Type | Meaning |
@@ -124,28 +121,36 @@ python src/scripts/build_feature_store.py # train_cleaned
 ## Project Structure
 ```plaintext
 rossmann-sales-pipeline/
-├── models/                     # Serialized models (.pkl)
-├── notebooks/                  # Jupyter notebooks for EDA
+├── dags/
+├── docs/
+├── helm-chart/
+├── infrastructure/
+├── k8s/
 ├── src/
 │   ├── app/
-│   │   ├── api.py              # FastAPI backend + Prometheus instrumentation
-│   │   ├── dashboard.py        # Streamlit frontend (legacy)
-│   │   └── config.py           # Pydantic settings
-│   ├── dash_app/               # Plotly Dash multi-page app
-│   │   ├── app.py              # Dash entry point
-│   │   ├── layouts.py          # Page layouts
-│   │   └── utils.py            # Helper functions
-│   └── scripts/
-│       ├── train_model.py      # Training script
-│       └── promote_model.py    # Promote the best MLflow run by MAE
-├── tests/                      # 129 unit + 8 integration tests
-├── run_stack.sh                # Start API + MLflow + MinIO + Prometheus + Grafana
-├── verify_stack.sh             # 7 live-stack health checks
-├── k8s/                        # Kubernetes manifests
-├── helm-chart/                 # Helm chart for K8s
-├── environments/               # Conda environments
-├── .github/workflows/          # CI/CD pipelines
-└── docker-compose.yml          # Container orchestration
+│   ├── dash_app/
+│   ├── scripts/
+│   ├── auth.py
+│   ├── ratelimit.py
+│   ├── retry.py
+│   ├── uploads.py
+│   └── versioning.py
+├── terraform/
+├── tests/
+├── docker-compose.yml
+├── Dockerfile
+├── Dockerfile.serve
+├── dvc.yaml
+├── load_test.py
+├── Makefile
+├── params.yaml
+├── provision_dashboards.py
+├── pyproject.toml
+├── README.md
+├── requirements-serve.txt
+├── run_stack.sh
+├── uv.lock
+└── verify_stack.sh
 ```
 
 ## Troubleshooting
@@ -154,7 +159,7 @@ rossmann-sales-pipeline/
 | **Database connection failed** | Check PostgreSQL container is running: `docker compose ps postgres` |
 | **Model not loaded in API** | Verify `models/model.pkl` exists; the API falls back to a heuristic and reports `source="fallback"` in metrics |
 | **`AttributeError: 'X' object has no attribute 'dict'`** | Fixed in this commit — Pydantic v2 uses `model_dump()` |
-| **Dash dashboard not loading** | Check port 8050 is not in use; verify `src/dash_app/app.py` imports |
+| **Dash dashboard not loading** | Check port 8503 is not in use; verify `src/dash_app/app.py` imports |
 | **MLflow UI not accessible** | Ensure the MLflow container has the correct artifact store configuration |
 | **Prediction errors** | Check the input feature schema matches the training features exactly |
 | **Grafana shows "No data"** | The provisioning or dashboards directory is not mounted, or Grafana is not on the `mlops-stack` network so it cannot resolve `prom_<project>` | Run `python3 provision_dashboards.py` — it reports which of the two it is |

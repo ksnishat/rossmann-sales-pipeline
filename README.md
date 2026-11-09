@@ -26,7 +26,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 
 ### What it does
 
-- **Machine Learning:** Random Forest Regressor trained on store, promotion, and competitor data.
+- **Machine Learning:** Histogram gradient boosting (`HistGradientBoostingRegressor`) trained on store, promotion, and competitor data. Chosen over a random forest because it separates stores at 9 MB instead of 682 MB; see the model comparison below.
 - **Experiment Tracking:** Uses **MLflow** to track model metrics and parameters.
 - **Backend API:** Served using **FastAPI** for real-time predictions with health checks and Prometheus metrics.
 - **Multi-page Dashboard:** Interactive UI built with **Plotly Dash** and **Dash Bootstrap Components** for enterprise-grade visualization.
@@ -41,7 +41,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 flowchart LR
     RAW["Raw sales<br/>CSV + PostgreSQL"] --> FEAT["Feature engineering<br/>holidays, promos, competition"]
     FEAT --> STORE["Feature store<br/>train_cleaned"]
-    STORE --> RF["Random Forest<br/>scikit-learn"]
+    STORE --> RF["Gradient boosting<br/>HistGradientBoosting"]
     RF --> MLflow["MLflow<br/>runs + metrics"]
     MLflow --> PROMOTE["Promotion<br/>best run by MAE"]
     PROMOTE --> API["FastAPI<br/>/predict"]
@@ -65,13 +65,13 @@ flowchart LR
     class CI gate
 ```
 No LLM in this project, so the request path is short: the model is a
-scikit-learn `RandomForestRegressor` loaded once at startup.
+scikit-learn `HistGradientBoostingRegressor` loaded once at startup.
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant A as FastAPI
-    participant M as RandomForest
+    participant M as HistGB model
 
     C->>A: POST /predict (8 fields)
     A->>A: validate schema (Pydantic v2)
@@ -183,7 +183,7 @@ Database setup, dashboards and troubleshooting: **[docs/OPERATIONS.md](./docs/OP
 | TLS proxy | 8445 | | MinIO | 9004 |
 
 
-`start_all_stacks.sh` (workspace root) starts every service for all four projects; `verify_live_stack.sh` checks 32 endpoints.
+Run this project alone with `./run_stack.sh` (API, MLflow, MinIO, Prometheus, Grafana). Dashboard: `python -m src.dash_app.app` (port 8503). Airflow and the Postgres feature store run through `docker compose`. The four-project orchestrator used during development is kept in the author's workspace and is not part of this repository.
 
 ### Security
 
@@ -203,6 +203,20 @@ systems are *production-shaped*, not production-grade.
 |---|---|
 | Unit tests | **129** (8 integration tests run against the live stack) |
 | CI jobs | **11**: 3.10 + 3.11 matrix, ruff, mypy, Bandit, pip-audit, Trivy SARIF, Terraform validate, Docker build-and-serve, README-count check |
+
+## Roadmap
+
+1. **Add holiday-proximity features.** The error is heavy-tailed (RMSE 1184 vs
+   MAE 796), which points at holiday and peak days. Store-level aggregate
+   features were tested and did not reduce MAE (781 → 782), so holidays are the
+   next candidate.
+2. **Serve quantiles, not a point.** Return P10 / P50 / P90 so a planner sees
+   the uncertainty the single MAE figure hides.
+3. **Stream the sales feed.** Sales arrive as a batch CSV. A Kafka topic feeding
+   the feature store would cover the streaming gap that German Data Engineering
+   postings name explicitly. None exists yet.
+4. **Replace the single 80/20 split with a rolling-origin backtest**, so MAE is
+   reported with a spread rather than as one number.
 
 ---
 
