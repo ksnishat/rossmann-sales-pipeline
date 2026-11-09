@@ -43,6 +43,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
 🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
 ✅ **Test suite green** — 129 unit + 8 live integration tests passing
+🖥️ **Dashboard actually starts** — `app.run_server` was removed in Dash 3.0 and raised `ObsoleteAttributeException`, so `python -m src.dash_app.app` crashed on the last line. Tests imported the app object and never executed `__main__`, so nothing caught it. Now `app.run`, launched on :8503 by the stack script
 
 ## Architecture
 
@@ -377,10 +378,14 @@ python3 provision_dashboards.py rossmann   # datasource + dashboard
 | **FastAPI** | http://localhost:8002/docs | N/A |
 | **Prometheus** | http://localhost:9092 | N/A |
 | **Grafana** | http://localhost:3003 | `admin` / `admin` |
-| **Plotly Dash** | http://localhost:8050 | N/A |
-| **Streamlit** | http://localhost:8501 | N/A |
+| **Plotly Dash** | http://localhost:8503 | N/A |
 | **MLflow** | http://localhost:5003 | N/A |
 | **PostgreSQL** | localhost:5433 | rossmann / changeme123 |
+
+> **All four stacks at once:** the root `start_all_stacks.sh` starts the API,
+> MLflow, MinIO, Prometheus, Grafana, TLS proxy and this dashboard for every
+> project, then `verify_live_stack.sh` checks 32 endpoints. The ports in the
+> table above are the ones that script uses.
 
 ### Exposed metrics
 
