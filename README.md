@@ -20,7 +20,11 @@
 
 An **end-to-end Machine Learning solution** to predict **daily sales** for Rossmann drug stores. This project implements a complete **MLOps pipeline**, including data extraction, experiment tracking, model deployment via REST API, and a professional multi-page dashboard built with **Plotly Dash** (modern alternative to Streamlit for German enterprise market).
 
-## Key Features
+---
+
+**At a glance** — MAE **796.33** · R² **0.851** · 129 unit tests · 11 CI jobs · HistGradientBoosting + MLflow + Plotly Dash
+
+### What it does
 
 - **Machine Learning:** Random Forest Regressor trained on store, promotion, and competitor data.
 - **Experiment Tracking:** Uses **MLflow** to track model metrics and parameters.
@@ -31,21 +35,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 - **Production Ready:** Kubernetes and Helm charts for scalable deployment.
 - **CI/CD Pipeline:** GitHub Actions for automated testing, building, and deployment.
 
-
-### Recent Improvements (2026)
-🔧 **Makefile** — Standardized commands: `make test`, `make lint`, `make docker-up`, `make k8s-deploy`, `make promote`
-📦 **pyproject.toml** — Modern Python packaging with dependencies, entry points, ruff/mypy config
-🔒 **Pre-commit hooks** — Ruff, mypy, black, trailing whitespace, YAML validation
-✅ **Data Quality Validation** — Schema-based validation (completeness, validity, consistency, uniqueness)
-☁️ **Terraform IaC** — Azure infrastructure as code (AKS, PostgreSQL, Redis, monitoring), `fmt`-clean and `validate`-checked in CI
-📊 **Prometheus instrumentation** — the API now exposes request, latency, prediction and model-loaded metrics
-🔒 **10-job CI** — Python 3.10 + 3.11 matrix, Bandit, pip-audit with a documented allowlist, Trivy SARIF, mypy, Terraform validate, Docker image build-and-serve
-🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
-🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
-✅ **Test suite green** — 129 unit + 8 live integration tests passing
-🖥️ **Dashboard actually starts** — `app.run_server` was removed in Dash 3.0 and raised `ObsoleteAttributeException`, so `python -m src.dash_app.app` crashed on the last line. Tests imported the app object and never executed `__main__`, so nothing caught it. Now `app.run`, launched on :8503 by the stack script
-
-## Architecture
+### Architecture
 
 ```mermaid
 flowchart LR
@@ -74,9 +64,6 @@ flowchart LR
     class Prom,Graf observe
     class CI gate
 ```
-
-### Request path
-
 No LLM in this project, so the request path is short: the model is a
 scikit-learn `RandomForestRegressor` loaded once at startup.
 
@@ -95,36 +82,7 @@ sequenceDiagram
     A-->>C: predicted_sales, model_version
 ```
 
-## Professional Feature Table
-
-| Feature | Description | Business Value | German Industry Relevance |
-|---------|-------------|----------------|---------------------------|
-| **Sales Forecasting** | Random Forest for daily sales prediction | Improves inventory accuracy | Supports German retail planning (Einzelhandel) standards |
-| **Multi-page Dash Dashboard** | Professional Plotly Dash with 4 pages: Home, Stores, Predict, Metrics | Enables data-driven store management decisions | Matches German retail dashboard requirements (KPI-Cockpit) |
-| **MLflow Experiment Tracking** | Full experiment lineage with parameters, metrics, artifacts | Ensures model reproducibility and auditability | Complies with German regulatory audit requirements (GoBD) |
-| **PostgreSQL Feature Store** | Centralized feature storage with versioning | Reduces feature engineering duplication | Aligns with German data governance standards |
-| **Prometheus Monitoring** | Custom metrics for prediction latency, request counts and last predicted value | Proactive service monitoring; no accuracy or drift metric is emitted because ground-truth sales are not available at serving time | Supports DIN SPEC 92001 AI quality standards |
-| **CI/CD Pipeline** | Automated testing, building, deployment | Reduces deployment risk and time-to-market | DevOps practices valued by German enterprises |
-| **Multi-language Support** | Dashboard available in German/English | Facilitates adoption across German retail chains | Meets German language requirements in B2B software |
-| **Scalable Architecture** | Kubernetes HPA with CPU/memory scaling | Handles Black Friday / peak season loads | Critical for German retail peak periods (Weihnachtsgeschäft) |
-
-## Why This Matters for German Industry
-
-Germany's retail sector is undergoing digital transformation, with predictive analytics becoming a competitive differentiator:
-
-1. **Retail 4.0 Initiative**: The platform aligns with HDE (Handelsverband Deutschland) digitalization roadmap for retail analytics.
-
-2. **Inventory Optimization**: Accurate sales forecasts reduce overstock (Verpackungsgesetz compliance) and understock (customer satisfaction).
-
-3. **Workforce Planning**: Sales forecasts enable optimal shift scheduling under German Arbeitszeitgesetz (working time law).
-
-4. **Promotion Effectiveness**: Quantifies promotion ROI, critical for German drugstore chains (dm, Rossmann, Müller) competing on promotions.
-
-5. **Data Sovereignty**: On-premise/Kubernetes deployment keeps sensitive sales data within German borders (GDPR/BDSG).
-
-6. **SME Accessibility**: Helm charts and Docker Compose enable Mittelstand retailers to deploy without cloud vendor lock-in.
-
-## Verified Model Metrics
+### Verified results
 
 Reproduced locally on an NVIDIA RTX 3050 Ti (4 GB).
 
@@ -140,9 +98,6 @@ Reproduced locally on an NVIDIA RTX 3050 Ti (4 GB).
 | **R²** | **0.8507** |
 | Target | `Sales` (raw, no log transform) |
 | Model size | 8.9 MB |
-
-### Why gradient boosting rather than a random forest
-
 The previous model was a `RandomForestRegressor` with 50 trees at depth 10. It
 scored MAE 876 but could not tell stores apart: with every other input held
 constant it returned only **4 distinct values across all 1,115 stores**, and a
@@ -162,17 +117,11 @@ A forest expressive enough to separate 1,115 stores needs `max_depth=None` and
 
 Measured through the live `/predict` endpoint, holding all other inputs constant
 and varying only `Store`.
-
-### Why the split is time-based
-
 A random split leaks for this dataset: the same store appears in train and test
 on adjacent days, so the model can memorise store-level patterns and the
 reported error is optimistic. Sorting by date and holding out the last 20% is
 the only honest evaluation for a forecasting task. The MAE is slightly higher
 than a random split would give — that is the point.
-
-### Honest framing
-
 Mean daily sales are ~5,700, so MAE 796 is roughly 14% error. The gap between
 MAE and RMSE indicates a heavy-tailed error distribution: a small number of days
 are badly wrong, almost certainly around holidays and the Christmas peak, which
@@ -184,345 +133,77 @@ boosting plus extensive feature engineering (store-level history, holiday
 proximity, promo decay). This baseline is a clean, reproducible reference
 implementation — the value here is the *pipeline*, not the leaderboard rank.
 
-## API endpoints
+### Why this matters in Germany
 
-All endpoints except `/` and `/metrics` require the `X-API-Key` header when auth
-is enabled. Rate limits come from `src/ratelimit.py`.
+| Driver | How it applies |
+|---|---|
+| **HDE Retail 4.0** | Aligns with the German retail association's analytics roadmap |
+| **Arbeitszeitgesetz** | Sales forecasts inform shift scheduling under working-time law |
+| **Promotion ROI** | Quantifies promo lift — how dm, Rossmann and Müller compete |
+| **GDPR / BDSG** | On-premise and Kubernetes deployment keeps sales data in-country |
+| **Verpackungsgesetz** | Better forecasts reduce overstock and packaging waste |
+
+### API
+
+All endpoints except `/` and `/metrics` require `X-API-Key`.
 
 | Method | Path | Limit | Purpose |
 |--------|------|-------|---------|
-| `GET` | `/` | none | Health probe. Reports `model_loaded` and `auth_enabled` |
+| `GET` | `/` | none | Health: `model_loaded`, `auth_enabled` |
 | `POST` | `/predict` | 60/min | Eight fields in, predicted daily sales in EUR |
-| `GET` | `/drift` | 30/min | Drift state for the sales features |
-| `POST` | `/admin/reload-model` | 5/min | Reload the promoted model without restarting the process |
+| `GET` | `/drift` | 30/min | Drift state for sales features |
+| `POST` | `/admin/reload-model` | 5/min | Reload the promoted model without a restart |
 | `GET` | `/metrics` | none | Prometheus exposition |
 
-## Security
+
+### Quickstart
+
+```bash
+docker compose up -d postgres      # feature store lives in Postgres on :5433
+uv sync --extra dev
+uv run python src/scripts/load_data.py
+uv run python src/scripts/build_feature_store.py
+uv run python src/scripts/train_model.py
+uv run uvicorn src.app.api:app --port 8002
+curl -X POST http://localhost:8002/predict \
+     -H "X-API-Key: demo-secret-key" -H "Content-Type: application/json" \
+     -d '{"Store":1,"DayOfWeek":4,"Promo":1,"SchoolHoliday":0,
+          "StoreType":"a","Assortment":"a","CompetitionDistance":1270.0,"Promo2":1}'
+```
+
+Database setup, dashboards and troubleshooting: **[docs/OPERATIONS.md](./docs/OPERATIONS.md)**.
+
+### Stack
+
+| Service | Port | | Service | Port |
+|---|---|---|---|---|
+| FastAPI | 8002 | | Prometheus | 9092 |
+| Plotly Dash | 8503 | | Grafana | 3003 |
+| MLflow | 5003 | | Postgres | 5433 |
+| TLS proxy | 8445 | | MinIO | 9004 |
+
+
+`start_all_stacks.sh` (workspace root) starts every service for all four projects; `verify_live_stack.sh` checks 32 endpoints.
+
+### Security
 
 | Control | Implementation |
-|---------|---------------|
-| API-key auth | `src/auth.py` — `X-API-Key` on `/predict`, `/drift`, `/admin/reload-model`. Off when `API_KEY` is unset. |
-| Constant-time comparison | `secrets.compare_digest`, so response timing does not leak the key length or prefix. |
-| TLS | `infrastructure/tls/` — nginx reverse proxy, TLSv1.2/1.3, `server_tokens off`, security headers. |
-| Upload limit | `src/uploads.py` — `Content-Length` rejected before the body is read; the bytes actually received are checked too. |
-| Health stays open | `/` and `/metrics` are unauthenticated so a load balancer and Prometheus can reach them. They expose no data. |
+|---|---|
+| Auth | `X-API-Key` via `secrets.compare_digest` (constant-time) |
+| TLS | nginx reverse proxy, TLSv1.2/1.3 |
+| Upload limits | `Content-Length` rejected before the body is read |
+| Rate limits | Per-endpoint, 429 on breach |
 
-### Enabling auth
+**Not in place:** RBAC, a secret manager, multi-node HA, a soak test. The
+systems are *production-shaped*, not production-grade.
 
-```bash
-export API_KEY="$(openssl rand -hex 32)"
-./run_stack.sh
-```
+### Tests and CI
 
-`run_stack.sh` defaults `API_KEY` to a demo value so the stack is secure by
-default. The key is part of the environment the watchdog restarts the API with,
-so it survives a crash — a key set only on the start command would be silently
-dropped.
-
-### Calling an authenticated endpoint
-
-```bash
-curl -H "X-API-Key: $API_KEY" -F "file=@sample.csv" http://localhost:8000/predict
-```
-
-### Over HTTPS
-
-```bash
-./infrastructure/tls/start_tls_proxy.sh
-curl -k -H "X-API-Key: $API_KEY" -F "file=@sample.csv" https://localhost:8443/predict
-```
-
-The certificate is self-signed, so `-k` is required with curl and a browser will
-warn. A real deployment would use a CA-issued certificate and terminate TLS at
-the load balancer.
-
-### Not in place
-
-No RBAC or per-user identity, no rate limiting, no secret manager (credentials
-are environment variables), and no audit log of who called `/admin/reload-model`.
+| | |
+|---|---|
+| Unit tests | **129** (8 integration tests run against the live stack) |
+| CI jobs | **11**: 3.10 + 3.11 matrix, ruff, mypy, Bandit, pip-audit, Trivy SARIF, Terraform validate, Docker build-and-serve, README-count check |
 
 ---
 
-## Production readiness
-
-This is a **production-shaped** system, not a production-hardened one. The
-distinction matters, so here is exactly where it stands.
-
-### What is in place
-
-| Capability | Status |
-|-----------|--------|
-| End-to-end MLOps loop | Airflow retrains, MLflow tracks, the API hot-swaps weights without a restart |
-| Drift detection | PSI against a training-time baseline, exposed at `/drift` and as Prometheus gauges |
-| Alerting | 5 Prometheus rules per project, verified loading and evaluating |
-| Authentication | `X-API-Key` on `/predict`, `/drift` and `/admin/reload-model` when `API_KEY` is set |
-| TLS | nginx reverse proxy, TLSv1.2/1.3, security headers (`infrastructure/tls/`) |
-| Upload limits | 10 MiB default, enforced before the body is read (`MAX_UPLOAD_BYTES`) |
-| Self-healing | Watchdog restarts the API and MLflow if they crash; containers use `restart: unless-stopped` |
-| Tests | Unit + live integration suites, run in CI |
-| Load tested | `python3 load_test.py` measures p50/p95/p99 and throughput against the running API |
-
-### What is not in place
-
-| Gap | Why it matters |
-|-----|---------------|
-| **No multi-tenancy or RBAC** | One shared API key. No per-user identity, quotas or audit trail. |
-| **No secret management** | Credentials are environment variables with demo defaults. A deployment needs Vault, SOPS or a cloud secret store. |
-| **Single node, no HA** | One host, one worker process per API. No replication, no failover. |
-| **No sustained soak test** | Load figures are a 60-request burst, not a multi-hour run. |
-| **Drift thresholds not tuned** | 0.10 / 0.25 are the conventional PSI bands, not calibrated to this data. |
-| **No model rollback** | The reload endpoint swaps weights forward only. A bad model needs a manual revert. |
-
-### The honest one-line summary
-
-> "Production-shaped: the full MLOps loop, drift detection, alerting, auth, TLS
-> and self-healing are all in place and verified. Not production-hardened: no
-> RBAC, no secret manager, single node, and the load numbers are a burst rather
-> than a soak test."
-
----
-
-## Quickstart
-
-### 1. Install dependencies
-
-```bash
-# uv reads pyproject.toml and installs the exact set pinned in uv.lock.
-pip install uv
-uv sync --extra dev
-source .venv/bin/activate
-```
-
-### 2. Get the data
-
-Download `train.csv` and `store.csv` from the
-[Kaggle competition](https://www.kaggle.com/c/rossmann-store-sales/data) and
-place them in `rossmann-store-sales/` at the repository root.
-
-### 3. Train
-
-```bash
-python -m src.scripts.train_model
-```
-
-This writes `models/model.pkl` and logs the run to MLflow.
-
-### 4. Start the API
-
-```bash
-uvicorn src.app.api:app --host 0.0.0.0 --port 8002
-```
-
-### 5. Verify
-
-```bash
-# The root path is the health endpoint; there is no /health route.
-curl http://localhost:8002/
-# {"status":"healthy","service":"rossmann-sales-api","model_loaded":true}
-
-curl http://localhost:8002/metrics | grep rossmann
-# Field names are PascalCase and match the training columns exactly.
-curl -X POST http://localhost:8002/predict \
-     -H 'Content-Type: application/json' \
-     -d '{"Store":1,"DayOfWeek":5,"Promo":1,"SchoolHoliday":0,"StoreType":"a","Assortment":"a","CompetitionDistance":1270.0,"Promo2":0}'
-# {"predicted_sales":5034.717003288615}
-```
-
-### 6. Or launch the whole Docker stack
-
-```bash
-docker compose up -d      # postgres, mlflow, api, dash, streamlit, prometheus, grafana
-```
-
-## Running Tests
-
-```bash
-uv run --frozen --extra dev python -m pytest tests/ -v   # 129 passed, 8 deselected
-```
-
-The 8 skipped tests are integration tests that need the live docker stack. They
-are excluded from CI (which has no model checkpoint or dataset) and run against
-real services instead of an in-process `TestClient`:
-
-```bash
-./run_stack.sh
-LIVE_STACK=1 pytest tests/test_integration_live.py -v   # 8 passed
-```
-
-They assert the API returns a positive forecast, that a missing required field
-is rejected with 422, that Prometheus is actually scraping the API (not merely
-healthy), and that MLflow, Grafana and MinIO are reachable.
-
-## Screenshots
-
-Captured from the running stack, not mocked up.
-
-### Grafana — model diagnostics
-
-![Rossmann Grafana dashboard](docs/screenshots/grafana-dashboard.png)
-
-### API — OpenAPI schema
-
-![Rossmann Swagger UI](docs/screenshots/api-swagger.png)
-
-## Monitoring & Live Demo
-
-```bash
-./run_stack.sh                   # API + MLflow + MinIO + Prometheus + Grafana
-python3 provision_dashboards.py rossmann   # datasource + dashboard
-./verify_stack.sh                 # 7 checks, exit 0 when all pass
-```
-
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **FastAPI** | http://localhost:8002/docs | N/A |
-| **Prometheus** | http://localhost:9092 | N/A |
-| **Grafana** | http://localhost:3003 | `admin` / `admin` |
-| **Plotly Dash** | http://localhost:8503 | N/A |
-| **MLflow** | http://localhost:5003 | N/A |
-| **PostgreSQL** | localhost:5433 | rossmann / changeme123 |
-
-> **All four stacks at once:** the root `start_all_stacks.sh` starts the API,
-> MLflow, MinIO, Prometheus, Grafana, TLS proxy and this dashboard for every
-> project, then `verify_live_stack.sh` checks 32 endpoints. The ports in the
-> table above are the ones that script uses.
-
-### Exposed metrics
-
-| Metric | Type | Meaning |
-|--------|------|---------|
-| `rossmann_requests_total` | counter | Requests, labelled by `endpoint` and `status` |
-| `rossmann_prediction_latency_seconds` | histogram | Prediction latency |
-| `rossmann_last_predicted_sales` | gauge | Most recent predicted sales value |
-| `rossmann_model_loaded` | gauge | 1 when the model is loaded, 0 otherwise |
-| `rossmann_predictions_total` | counter | Predictions, labelled by `source` (`model` / `fallback`) |
-| `rossmann_feature_drift_psi` | gauge | PSI per input feature vs the training baseline |
-| `rossmann_max_drift_psi` | gauge | Largest per-feature PSI in the current window |
-
-### Drift detection
-
-`GET /drift` reports the Population Stability Index between live request values
-and the distribution the model was fitted on. The baseline is captured during
-training into `models/drift_baseline.json`.
-
-Only numeric features are tracked: PSI is defined on a continuous or ordinal
-distribution, and the one-hot indicator columns are already represented by the
-numeric features they derive from. Constant features are dropped because they
-collapse the quantile bins and make PSI undefined.
-
-### Scheduled retraining
-
-`dags/retraining_pipeline.py` runs weekly: retrain → promote the best MLflow run
-→ reload the serving model → report drift. Promotion is a separate step from
-training so a bad run cannot reach production just by finishing.
-
-```bash
-docker compose up -d postgres airflow-postgres airflow-webserver airflow-scheduler
-docker exec rossmann_airflow_scheduler airflow dags unpause rossmann_continuous_learning
-docker exec rossmann_airflow_scheduler airflow dags trigger rossmann_continuous_learning
-```
-
-Airflow UI: http://localhost:8083 (`admin` / `admin`).
-
-The reload step calls `POST /admin/reload-model`, disabled unless
-`ENABLE_MODEL_RELOAD=true`.
-
-### Building the feature store
-
-`train_model.py` reads `SELECT * FROM train_cleaned`, which nothing created
-before. Build it after loading the raw tables:
-
-```bash
-python src/scripts/load_data.py           # train + store tables
-python src/scripts/build_feature_store.py # train_cleaned
-```
-
-## Local Development Setup
-
-### 1. Environment Setup
-
-```bash
-conda env create -f environments/rossmann-env.yml
-conda activate rossmann-sales-env
-```
-
-### 2. Database Setup
-
-```bash
-docker compose up -d postgres
-python -m src.scripts.build_feature_store.py
-```
-
-### 3. Run API and Dashboards
-
-```bash
-# Terminal 1: FastAPI
-uvicorn src.app.api:app --reload --host 0.0.0.0 --port 8002
-
-# Terminal 2: Plotly Dash
-python -m src.dash_app.app
-
-# Terminal 3: Streamlit (legacy)
-streamlit run src/app/dashboard.py
-```
-
-## Project Structure
-
-```plaintext
-rossmann-sales-pipeline/
-├── models/                     # Serialized models (.pkl)
-├── notebooks/                  # Jupyter notebooks for EDA
-├── src/
-│   ├── app/
-│   │   ├── api.py              # FastAPI backend + Prometheus instrumentation
-│   │   ├── dashboard.py        # Streamlit frontend (legacy)
-│   │   └── config.py           # Pydantic settings
-│   ├── dash_app/               # Plotly Dash multi-page app
-│   │   ├── app.py              # Dash entry point
-│   │   ├── layouts.py          # Page layouts
-│   │   └── utils.py            # Helper functions
-│   └── scripts/
-│       ├── train_model.py      # Training script
-│       └── promote_model.py    # Promote the best MLflow run by MAE
-├── tests/                      # 129 unit + 8 integration tests
-├── run_stack.sh                # Start API + MLflow + MinIO + Prometheus + Grafana
-├── verify_stack.sh             # 7 live-stack health checks
-├── k8s/                        # Kubernetes manifests
-├── helm-chart/                 # Helm chart for K8s
-├── environments/               # Conda environments
-├── .github/workflows/          # CI/CD pipelines
-└── docker-compose.yml          # Container orchestration
-```
-
-## Dashboard Features (Plotly Dash)
-
-The **Plotly Dash** dashboard includes 4 pages:
-
-1. **Home** — Executive KPI overview with sales trends, store count, average sales
-2. **Stores** — Interactive store comparison with filters, heatmap, and performance ranking
-3. **Predict** — Sales prediction form with feature inputs and forecast visualization
-4. **Metrics** — Model performance tracking with MLflow integration
-
-Built with **Dash Bootstrap Components** for a responsive UI.
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| **Database connection failed** | Check PostgreSQL container is running: `docker compose ps postgres` |
-| **Model not loaded in API** | Verify `models/model.pkl` exists; the API falls back to a heuristic and reports `source="fallback"` in metrics |
-| **`AttributeError: 'X' object has no attribute 'dict'`** | Fixed in this commit — Pydantic v2 uses `model_dump()` |
-| **Dash dashboard not loading** | Check port 8050 is not in use; verify `src/dash_app/app.py` imports |
-| **MLflow UI not accessible** | Ensure the MLflow container has the correct artifact store configuration |
-| **Prediction errors** | Check the input feature schema matches the training features exactly |
-| **Grafana shows "No data"** | The provisioning or dashboards directory is not mounted, or Grafana is not on the `mlops-stack` network so it cannot resolve `prom_<project>` | Run `python3 provision_dashboards.py` — it reports which of the two it is |
-| **Pods crash on K8s** | Increase resource limits in `helm-chart/values.yaml`; check PVC binding |
-| **GitHub Actions failing** | Verify secrets (`GITHUB_TOKEN`, `KUBE_CONFIG_DATA`) are configured |
-
-## Author
-
-Developed by **Khaled Saifullah**.
-
-For collaboration, feature requests, or bug reports, please open an issue or contact the maintainer via the repository issue tracker.
-
-**Last Updated**: October 2026
+**Author** — Khaled Saifullah · [GitHub](https://github.com/ksnishat)
