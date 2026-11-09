@@ -37,11 +37,12 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 📦 **pyproject.toml** — Modern Python packaging with dependencies, entry points, ruff/mypy config
 🔒 **Pre-commit hooks** — Ruff, mypy, black, trailing whitespace, YAML validation
 ✅ **Data Quality Validation** — Schema-based validation (completeness, validity, consistency, uniqueness)
-☁️ **Terraform IaC** — Azure infrastructure as code (AKS, PostgreSQL, Redis, monitoring)
+☁️ **Terraform IaC** — Azure infrastructure as code (AKS, PostgreSQL, Redis, monitoring), `fmt`-clean and `validate`-checked in CI
 📊 **Prometheus instrumentation** — the API now exposes request, latency, prediction and model-loaded metrics
+🔒 **10-job CI** — Python 3.10 + 3.11 matrix, Bandit, pip-audit with a documented allowlist, Trivy SARIF, mypy, Terraform validate, Docker image build-and-serve
 🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
 🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
-✅ **Test suite green** — 75 unit + 8 live integration tests passing
+✅ **Test suite green** — 124 unit + 8 live integration tests passing
 
 ## Architecture
 
@@ -56,18 +57,41 @@ flowchart LR
     API --> DASH["Plotly Dash<br/>4-page BI dashboard"]
     API --> Prom["Prometheus"]
     Prom --> Graf["Grafana"]
+    API --> CI["CI: image build<br/>+ serve assertion"]
 
     classDef data fill:#e3f2fd,stroke:#1565c0,stroke-width:1px,color:#0d47a1
     classDef train fill:#fff3e0,stroke:#e65100,stroke-width:1px,color:#bf360c
     classDef track fill:#f3e5f5,stroke:#6a1b9a,stroke-width:1px,color:#4a148c
     classDef serve fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px,color:#1b5e20
     classDef observe fill:#eceff1,stroke:#37474f,stroke-width:1px,color:#263238
+    classDef gate fill:#fffde7,stroke:#f9a825,stroke-width:1px,color:#f57f17
 
     class RAW,FEAT,STORE data
     class RF train
     class MLflow,PROMOTE track
     class API,DASH serve
     class Prom,Graf observe
+    class CI gate
+```
+
+### Request path
+
+No LLM in this project, so the request path is short: the model is a
+scikit-learn `RandomForestRegressor` loaded once at startup.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as FastAPI
+    participant M as RandomForest
+
+    C->>A: POST /predict (8 fields)
+    A->>A: validate schema (Pydantic v2)
+    A->>A: build feature row from model_columns.pkl
+    A->>M: predict
+    M-->>A: daily sales in EUR
+    A->>A: update Prometheus gauges
+    A-->>C: predicted_sales, model_version
 ```
 
 ## Professional Feature Table
@@ -276,7 +300,7 @@ docker compose up -d      # postgres, mlflow, api, dash, streamlit, prometheus, 
 ## Running Tests
 
 ```bash
-pytest tests/ -v          # 34 passed, 8 skipped
+uv run --frozen --extra dev python -m pytest tests/ -v   # 124 passed, 8 deselected
 ```
 
 The 8 skipped tests are integration tests that need the live docker stack. They
