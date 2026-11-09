@@ -219,3 +219,35 @@ class TestMlflowRefresh:
         except Exception as exc:  # noqa: BLE001
             pytest.fail(f"dashboard raised on MLflow outage: {exc}")
         assert result is not None
+
+
+class TestEntryPointIsRunnable:
+    """The dashboard module must be launchable as a script.
+
+    ``app.run_server`` was removed in Dash 3.0 and raises
+    ``ObsoleteAttributeException``. pyproject.toml allows ``dash>=2.14.0``, so
+    the installed version is 4.x and the old name made `python
+    src/dash_app/app.py` crash immediately — the dashboard never started when
+    launched directly, while the imported app object worked fine in tests, so
+    nothing caught it.
+
+    ``app.run`` exists in both 2.14 and 4.x, so it is the compatible spelling.
+    """
+
+    def test_uses_app_run_not_the_removed_run_server(self):
+        import inspect
+
+        from src.dash_app import app as dash_app
+
+        source = inspect.getsource(dash_app)
+        assert "run_server(" not in source, (
+            "app.run_server was removed in Dash 3.0; use app.run"
+        )
+        assert "app.run(" in source
+
+    def test_dash_version_supports_app_run(self):
+        import dash
+
+        major = int(dash.__version__.split(".")[0])
+        if major >= 3:
+            assert hasattr(dash.Dash, "run")

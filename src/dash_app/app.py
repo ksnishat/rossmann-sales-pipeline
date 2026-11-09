@@ -943,4 +943,8 @@ def refresh_mlflow_metrics(n_clicks):
 if __name__ == "__main__":
     port = int(os.getenv("DASH_PORT", "8050"))
     debug = os.getenv("DASH_DEBUG", "true").lower() == "true"
-    app.run_server(host="0.0.0.0", port=port, debug=debug)
+    # `run_server` was removed in Dash 3.0 and raises
+    # ObsoleteAttributeException; pyproject allows dash>=2.14.0, so the
+    # installed version is 4.x and the old name cannot be used. `run` exists in
+    # both 2.14 and 4.x, so it is the compatible spelling.
+    app.run(host="0.0.0.0", port=port, debug=debug)

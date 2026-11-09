@@ -42,7 +42,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 🔒 **10-job CI** — Python 3.10 + 3.11 matrix, Bandit, pip-audit with a documented allowlist, Trivy SARIF, mypy, Terraform validate, Docker image build-and-serve
 🐛 **Pydantic v2 fix** — `data.dict()` → `data.model_dump()`
 🐛 **Compose fix** — removed stale `ghcr.io/rossmann/*` image references so `dash` and `streamlit` build locally
-✅ **Test suite green** — 124 unit + 8 live integration tests passing
+✅ **Test suite green** — 126 unit + 8 live integration tests passing
 
 ## Architecture
 
@@ -313,7 +313,7 @@ docker compose up -d      # postgres, mlflow, api, dash, streamlit, prometheus, 
 ## Running Tests
 
 ```bash
-uv run --frozen --extra dev python -m pytest tests/ -v   # 124 passed, 8 deselected
+uv run --frozen --extra dev python -m pytest tests/ -v   # 126 passed, 8 deselected
 ```
 
 The 8 skipped tests are integration tests that need the live docker stack. They
@@ -456,7 +456,7 @@ rossmann-sales-pipeline/
 │   └── scripts/
 │       ├── train_model.py      # Training script
 │       └── promote_model.py    # Promote the best MLflow run by MAE
-├── tests/                      # 124 unit + 8 integration tests
+├── tests/                      # 126 unit + 8 integration tests
 ├── run_stack.sh                # Start API + MLflow + MinIO + Prometheus + Grafana
 ├── verify_stack.sh             # 7 live-stack health checks
 ├── k8s/                        # Kubernetes manifests
