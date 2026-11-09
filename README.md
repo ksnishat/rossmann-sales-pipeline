@@ -160,6 +160,19 @@ boosting plus extensive feature engineering (store-level history, holiday
 proximity, promo decay). This baseline is a clean, reproducible reference
 implementation — the value here is the *pipeline*, not the leaderboard rank.
 
+## API endpoints
+
+All endpoints except `/` and `/metrics` require the `X-API-Key` header when auth
+is enabled. Rate limits come from `src/ratelimit.py`.
+
+| Method | Path | Limit | Purpose |
+|--------|------|-------|---------|
+| `GET` | `/` | none | Health probe. Reports `model_loaded` and `auth_enabled` |
+| `POST` | `/predict` | 60/min | Eight fields in, predicted daily sales in EUR |
+| `GET` | `/drift` | 30/min | Drift state for the sales features |
+| `POST` | `/admin/reload-model` | 5/min | Reload the promoted model without restarting the process |
+| `GET` | `/metrics` | none | Prometheus exposition |
+
 ## Security
 
 | Control | Implementation |
@@ -442,8 +455,8 @@ rossmann-sales-pipeline/
 │   │   └── utils.py            # Helper functions
 │   └── scripts/
 │       ├── train_model.py      # Training script
-│       └── init_db.py          # Database initialization
-├── tests/                      # 34 unit + 8 integration tests
+│       └── promote_model.py    # Promote the best MLflow run by MAE
+├── tests/                      # 124 unit + 8 integration tests
 ├── run_stack.sh                # Start API + MLflow + MinIO + Prometheus + Grafana
 ├── verify_stack.sh             # 7 live-stack health checks
 ├── k8s/                        # Kubernetes manifests
