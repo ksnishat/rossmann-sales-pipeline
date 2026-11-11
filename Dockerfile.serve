@@ -36,6 +36,14 @@ COPY --from=builder /install /usr/local
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 COPY src/ ./src/
+# models/ is gitignored, so a CI checkout has no such directory and a bare
+# COPY fails with "not found". Create it first: the image then builds
+# without weights and the API serves its documented fallback, while a
+# local build with production_model.pkl present still ships it.
+# COPY reads its source from the build context, not the image, so a
+# `RUN mkdir` cannot satisfy it. models/ is gitignored and absent in CI;
+# the tracked models/.gitkeep makes the COPY succeed, and a local build
+# with real weights copies them over it.
 COPY models/ ./models/
 
 ENV PATH=/usr/local/bin:$PATH \
