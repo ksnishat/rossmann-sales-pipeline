@@ -22,7 +22,7 @@ An **end-to-end Machine Learning solution** to predict **daily sales** for Rossm
 
 ---
 
-**At a glance** — MAE **796.33** · R² **0.851** · 129 unit tests · 11 CI jobs · HistGradientBoosting + MLflow + Plotly Dash
+**At a glance** — MAE **796.33** · R² **0.851** · 129 unit tests · 12 CI jobs · HistGradientBoosting + MLflow + Plotly Dash
 
 ### What it does
 
