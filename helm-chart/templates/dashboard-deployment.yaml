@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: dash
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.dash.image.repository }}:{{ .Values.dash.image.tag }}"
           command: ["python", "-m", "src.dash_app.app"]
           ports:
             - containerPort: 8050

@@ -38,12 +38,22 @@ env:
   POSTGRES_DB: rossmann
   DASH_PORT: "8050"
 
+# The serve image bakes the trained weights into /app/models. Mounting an
+# empty PVC over that path hides them and the API starts with no model, so
+# persistence is off by default. Enable it only when you supply weights
+# through the volume instead of the image.
 persistence:
-  enabled: true
+  enabled: false
   size: 20Gi
   accessMode: ReadWriteOnce
 
 dash:
   enabled: true
+  # The dashboard needs dash/plotly, which requirements-serve.txt deliberately
+  # excludes to keep the API image small. Point this at a dashboard image; the
+  # API image cannot run src.dash_app.app.
+  image:
+    repository: ghcr.io/ksnishat/rossmann-sales-pipeline-dashboard
+    tag: latest
   port: 8050
   replicas: 1
