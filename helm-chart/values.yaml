@@ -48,10 +48,11 @@ persistence:
   accessMode: ReadWriteOnce
 
 dash:
-  enabled: true
-  # The dashboard needs dash/plotly, which requirements-serve.txt deliberately
-  # excludes to keep the API image small. Point this at a dashboard image; the
-  # API image cannot run src.dash_app.app.
+  # Off by default: the dashboard needs dash and plotly, which
+  # requirements-serve.txt excludes to keep the API image small, so it needs
+  # its own image. Enable it only after publishing that image, otherwise the
+  # pod sits in ErrImagePull and `helm install --wait` times out.
+  enabled: false
   image:
     repository: ghcr.io/ksnishat/rossmann-sales-pipeline-dashboard
     tag: latest
