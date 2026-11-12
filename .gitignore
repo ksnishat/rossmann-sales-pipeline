@@ -91,6 +91,11 @@ crash.log
 infrastructure/tls/*.key
 infrastructure/tls/*.crt
 
-# Keep the placeholder so Dockerfile.serve can COPY the directory in a
-# fresh checkout, where the real weights are absent.
+# The trained weights ARE tracked. Dockerfile.serve COPYs models/, and a
+# fresh clone that only had .gitkeep built an image with no model, so the API
+# silently served a fallback prediction instead of the HistGradientBoosting
+# regressor. The weights are ~8.5 MB, which is acceptable in git.
 !models/.gitkeep
+!models/production_model.pkl
+!models/model_columns.pkl
+!models/drift_baseline.json
